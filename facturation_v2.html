@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TEST PF Solidaire - Facturation V19 (Visualisation)</title>
+    <title>PF Solidaire - Facturation V19 (Visualisation)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -306,7 +306,6 @@
 
     <button id="mobile-menu-btn" onclick="window.toggleSidebar()"><i class="fas fa-bars"></i></button>
     <div id="mobile-overlay" onclick="window.toggleSidebar()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:4000;"></div>
-
 <script type="module">
     import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, getDoc } from "./js/config.js";
 
@@ -362,7 +361,7 @@
         
         doc.setTextColor(0); doc.setFont("helvetica","normal"); doc.setFontSize(10);
         const dateStr = data.info.date ? data.info.date.split('-').reverse().join('/') : "";
-        doc.text(`du ${dateStr}`, 90, y); // Date centrée
+        doc.text(`du ${dateStr}`, 90, y); 
         
         doc.setFont("helvetica","bold"); 
         doc.text(`DÉFUNT : ${data.defunt.civility || ''} ${data.defunt.nom || ''}`, 130, y); 
@@ -413,8 +412,6 @@
         doc.text(reste.toFixed(2) + " €", 193, yReste + 2, {align:'right'});
 
         // --- 4. BLOCS SPÉCIFIQUES (RIB ou SIGNATURE) ---
-        // On remonte le curseur à gauche pour le RIB ou la Signature
-        // Cela permet de mettre le bloc "A payer" ou "Signature" A CÔTÉ des totaux, pas en dessous (gain de place)
         
         if (typeDoc === 'FACTURE') {
             // === FACTURE : RIB & MENTION ===
@@ -445,9 +442,9 @@
              // Vérification intelligente : est-ce que ça tient sur la page ?
              if (curY + 45 > 285) { doc.addPage(); curY = 20; }
              
-             // Cadre de signature (Largeur totale ou gauche ?) -> Prenons largeur totale pour faire propre
+             // Cadre de signature
              doc.setDrawColor(0); doc.setLineWidth(0.3); 
-             // On dessine le cadre SOUS les totaux pour le devis (plus clair)
+             // On dessine le cadre SOUS les totaux pour le devis
              let ySig = Math.max(curY, yReste + 10) + 5; 
              
              doc.rect(15, ySig, 180, 35);
@@ -467,11 +464,18 @@
 
         // 5. MENTIONS LÉGALES FINALES
         if (typeDoc === 'DEVIS') {
+             // MENTIONS SPECIFIQUES DEVIS
              doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(0);
              const mentionDevis = "Conformément à l'article 5 de l'arrêté du 11 janvier 1999, lorsque le devis est accepté, un bon de commande est alors établi et signé par le client.";
              doc.text(doc.splitTextToSize(mentionDevis, 180), 15, curY);
+             
+             // AJOUT DEMANDÉ : Mention NA aussi sur le devis
+             curY += 8;
+             doc.setFont("helvetica", "bold"); doc.setTextColor(220, 38, 38);
+             doc.text("NB : - (NA) TVA non applicable, art 293 B du CGI", 15, curY);
+
         } else {
-            // Mentions Facture
+            // MENTIONS FACTURE
             doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(220, 38, 38); // Rouge pour NB
             doc.text("NB :", 15, curY); doc.setTextColor(0); doc.setFont("helvetica", "normal");
             doc.text("- (NA) TVA non applicable, art 293 B du CGI", 25, curY);
@@ -535,7 +539,7 @@
         } catch(e) { console.error(e); alert("Erreur visualisation : " + e.message); }
     };
 
-    // --- RESTE DU CODE (FONCTIONNEL) ---
+    // --- RESTE DU CODE (FONCTIONNEL & INCHANGÉ) ---
     function updateFinancialDashboard() {
         document.getElementById('stat-ca').innerText = global_CA.toFixed(2) + " €";
         document.getElementById('stat-depenses').innerText = global_Depenses.toFixed(2) + " €";
