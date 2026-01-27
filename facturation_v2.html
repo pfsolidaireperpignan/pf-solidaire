@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TEST PF Solidaire ()</title>
+    <title>test 2 PF Solidaire - Facturation V19 (Visualisation)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -442,10 +442,9 @@
             
             doc.setFont("helvetica", "normal");
             doc.text("Banque : BANQUE POPULAIRE DU SUD", 18, curY + 19);
-            doc.text("Titulaire : EI POMPES FUNEBRES SOLIDAIRE", 18, curY + 24);
+            doc.text("Titulaire : POMPES FUNEBRES SOLIDAIRE", 18, curY + 24);
             doc.text("IBAN : FR76 1660 7000 0738 2217 4454 393", 18, curY + 29);
-            doc.text("BIC : CCBPFRPPPPG", 18, curY + 34);
-            
+                   
             curY += 50;
 
         } else {
@@ -472,8 +471,7 @@
         doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(220, 38, 38);
         doc.text("NB :", 15, footerY); doc.setTextColor(0); doc.setFont("helvetica", "normal");
         doc.text("- (NA) TVA non applicable, art 293 B du CGI", 25, footerY);
-        doc.text("- (*) Prestations et fournitures obligatoires", 25, footerY + 4);
-        
+                
         if (typeDoc === 'DEVIS') {
              footerY += 9;
              doc.setFont("helvetica", "bold"); doc.setFontSize(7);
