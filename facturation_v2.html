@@ -318,113 +318,7 @@
     let global_Depenses = 0;
     const currentYear = new Date().getFullYear();
     let currentSort = { col: 'date', order: 'desc' }; 
-// --- NOUVEAU MOTEUR PDF (V23 : Compact + RIB) ---
-    function genererContenuPDF(pdfDoc, data) {
-        // 1. Logo et En-tête (Remontés pour gagner de la place)
-        if (logoBase64) { try { pdfDoc.addImage(logoBase64,'PNG', 15, 10, 20, 20); } catch(e){} }
-        
-        pdfDoc.setFont("helvetica","bold"); pdfDoc.setFontSize(11); pdfDoc.setTextColor(34, 155, 76);
-        pdfDoc.text("POMPES FUNEBRES SOLIDAIRE PERPIGNAN", 40, 15);
-        pdfDoc.setFontSize(8); pdfDoc.setFont("helvetica","normal"); pdfDoc.setTextColor(80);
-        pdfDoc.text("32 boulevard Léon Jean Grégory Thuir - Tél : 07.55.18.27.77", 40, 20);
-        
-        // 2. Cadre Client (Plus compact)
-        pdfDoc.setFillColor(245, 245, 245); pdfDoc.roundedRect(110, 10, 85, 25, 2, 2, 'F');
-        pdfDoc.setFontSize(10); pdfDoc.setTextColor(0); pdfDoc.setFont("helvetica","bold");
-        pdfDoc.text(`${data.client.civility} ${data.client.nom}`, 115, 16);
-        pdfDoc.setFont("helvetica","normal"); pdfDoc.setFontSize(9);
-        pdfDoc.text(pdfDoc.splitTextToSize(data.client.adresse || "", 80), 115, 22);
-        
-        // 3. Infos Document
-        let y = 45; // Début du contenu remonté
-        pdfDoc.setFontSize(11); pdfDoc.setFont("helvetica","bold"); pdfDoc.setTextColor(34, 155, 76);
-        const typeDoc = data.info.type; const numDoc = data.info.numero;
-        pdfDoc.text(`${typeDoc} N° ${numDoc}`, 15, y);
-        
-        pdfDoc.setTextColor(0); pdfDoc.setFont("helvetica","normal");
-        const dateStr = data.info.date ? data.info.date.split('-').reverse().join('/') : "";
-        pdfDoc.text(`Date : ${dateStr}`, 80, y);
-        
-        pdfDoc.setFont("helvetica","bold");
-        pdfDoc.text(`DÉFUNT : ${data.defunt.civility} ${data.defunt.nom}`, 130, y); 
-        y += 6;
 
-        // 4. Tableau des articles
-        const rows = [];
-        if(data.lignes) {
-            data.lignes.forEach(l => {
-                if(l.type === 'section') {
-                    rows.push([{ content: l.text.toUpperCase(), colSpan: 4, styles: { fillColor: [255, 228, 196], textColor: [0,0,0], fontStyle: 'bold', fontSize: 8 } }]);
-                } else {
-                    const prix = parseFloat(l.prix).toFixed(2) + ' €';
-                    rows.push([l.desc, 'NA', l.cat === 'Optionnel' ? '' : prix, l.cat === 'Optionnel' ? prix : '']);
-                }
-            });
-        }
-        
-        pdfDoc.autoTable({
-            startY: y,
-            head: [['DÉSIGNATION', 'TVA', 'COURANT', 'OPTIONNEL']],
-            body: rows,
-            theme: 'grid',
-            headStyles: { fillColor: [230, 230, 230], textColor: [0,0,0], fontSize: 8, halign: 'center' },
-            styles: { fontSize: 8, cellPadding: 2 }, // Cellules compactes
-            columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } }
-        });
-        
-        // 5. Gestion Pied de Page (RIB + Totaux sur la même ligne)
-        let finalY = pdfDoc.lastAutoTable.finalY + 5;
-        if (finalY > 230) { pdfDoc.addPage(); finalY = 20; }
-
-        // --- BLOC RIB (Gauche) ---
-        pdfDoc.setDrawColor(200); pdfDoc.setFillColor(250);
-        pdfDoc.roundedRect(15, finalY, 95, 22, 1, 1, 'FD');
-        pdfDoc.setFontSize(8); pdfDoc.setTextColor(100);
-        pdfDoc.text("COORDONNÉES BANCAIRES (RIB) :", 18, finalY + 5);
-        pdfDoc.setFontSize(9); pdfDoc.setTextColor(0); pdfDoc.setFont("helvetica", "bold");
-        pdfDoc.text("FR76 1660 7000 0738 2217 4454 393", 18, finalY + 12);
-        
-        // --- BLOC TOTAUX (Droite) ---
-        const total = parseFloat(data.info.total);
-        const paye = data.paiements ? data.paiements.reduce((sum, p) => sum + p.montant, 0) : 0;
-        const reste = total - paye;
-        
-        let curY = finalY + 5;
-        pdfDoc.setFontSize(9); pdfDoc.setTextColor(0);
-        pdfDoc.text("Total TTC :", 130, curY); pdfDoc.text(total.toFixed(2) + " €", 190, curY, {align:'right'}); curY+=5;
-        
-        if(data.paiements && data.paiements.length > 0) {
-            pdfDoc.setFontSize(7); pdfDoc.setTextColor(100);
-            data.paiements.forEach(p => {
-                pdfDoc.text(`Reçu (${p.mode}) :`, 130, curY);
-                pdfDoc.text(`-${p.montant.toFixed(2)} €`, 190, curY, {align:'right'}); curY+=4;
-            });
-            curY+=2;
-        }
-        
-        // Cadre Reste à Payer
-        pdfDoc.setDrawColor(34, 155, 76); pdfDoc.setLineWidth(0.5); pdfDoc.rect(125, curY-4, 70, 10);
-        pdfDoc.setFontSize(11); pdfDoc.setFont("helvetica", "bold"); pdfDoc.setTextColor(34, 155, 76);
-        pdfDoc.text("RESTE À PAYER :", 128, curY+3); pdfDoc.text(reste.toFixed(2) + " €", 192, curY+3, {align:'right'});
-
-        // 6. Mentions Légales
-        let footerY = Math.max(finalY + 25, curY + 15);
-        if (footerY > 265) { pdfDoc.addPage(); footerY = 20; }
-
-        pdfDoc.setFontSize(8); pdfDoc.setFont("helvetica", "bold"); pdfDoc.setTextColor(220, 38, 38); 
-        pdfDoc.text("NB :", 15, footerY); pdfDoc.setTextColor(0); pdfDoc.setFont("helvetica", "normal"); 
-        pdfDoc.text("- (NA) TVA non applicable, art 293 B du CGI - (*) Prestations obligatoires", 25, footerY);
-        
-        // Signature si Devis
-        if (typeDoc === 'DEVIS') {
-            footerY += 5;
-            pdfDoc.setDrawColor(0); pdfDoc.setLineWidth(0.2); pdfDoc.rect(15, footerY, 180, 20);
-            pdfDoc.text("Bon pour accord, le .........................", 20, footerY + 6);
-            pdfDoc.text("Signature :", 120, footerY + 6);
-            pdfDoc.setFontSize(7);
-            pdfDoc.text("Validité : 3 mois.", 150, footerY + 18, {align:"right"});
-        }
-    }
     function chargerLogoBase64() { const img = document.getElementById('logo-source'); if (img && img.naturalWidth > 0) { const c = document.createElement("canvas"); c.width=img.naturalWidth; c.height=img.naturalHeight; c.getContext("2d").drawImage(img,0,0); try{logoBase64=c.toDataURL("image/png");}catch(e){} } }
     setTimeout(chargerLogoBase64, 1000);
     
@@ -536,16 +430,12 @@
   // --- VISUALISATION PDF SANS TÉLÉCHARGEMENT (CORRIGÉE) ---
     window.visualiserPDF = async function(id) {
         try {
+            // Ici "doc" fait référence à Firebase (c'est correct)
             const docRef = doc(db, "factures_v2", id);
             const docSnap = await getDoc(docRef);
-            if(!docSnap.exists()) return alert("Document introuvable");
             
-            // On appelle le moteur V23
-            const pdfDoc = new window.jspdf.jsPDF(); 
-            genererContenuPDF(pdfDoc, docSnap.data());
-            window.open(pdfDoc.output('bloburl'), '_blank');
-        } catch(e) { alert("Erreur : " + e.message); }
-    };
+            if(!docSnap.exists()) return alert("Document introuvable");
+            const data = docSnap.data();
             
             // Génération PDF
             if(!logoBase64) chargerLogoBase64();
@@ -778,27 +668,8 @@
 
     document.getElementById('btn-save').addEventListener('click', async () => { const btn = document.getElementById('btn-save'); const id = document.getElementById('current_doc_id').value; btn.innerHTML = '...'; try { const lignes = []; document.querySelectorAll('#tbody_lignes tr').forEach(tr => { if(tr.classList.contains('row-section')) lignes.push({ type: 'section', text: tr.querySelector('input').value }); else lignes.push({ type: 'item', desc: tr.querySelector('.val-desc').value, cat: tr.querySelector('.val-type').value, prix: parseFloat(tr.querySelector('.val-prix').value) || 0 }); }); const docData = { client: { civility: document.getElementById('client_civility').value, nom: document.getElementById('client_nom').value, adresse: document.getElementById('client_adresse').value }, defunt: { civility: document.getElementById('defunt_civility').value, nom: document.getElementById('defunt_nom').value }, info: { type: document.getElementById('doc_type').value, date: document.getElementById('doc_date').value, numero: document.getElementById('doc_numero').value, total: parseFloat(document.getElementById('total_display').innerText) }, lignes: lignes, paiements: paiements, date_creation: new Date().toISOString() }; if(id) await updateDoc(doc(db, "factures_v2", id), docData); else await addDoc(collection(db, "factures_v2"), docData); alert("✅ Enregistré !"); window.showDashboard(); } catch(e) { alert("Erreur : " + e.message); } btn.innerHTML = '<i class="fas fa-save"></i> ENREGISTRER'; });
 
-  document.getElementById('btn-pdf').addEventListener('click', () => {
-        // Récupérer les lignes actuelles de l'éditeur
-        const lignes = []; 
-        document.querySelectorAll('#tbody_lignes tr').forEach(tr => { 
-            if(tr.classList.contains('row-section')) lignes.push({ type: 'section', text: tr.querySelector('input').value }); 
-            else lignes.push({ type: 'item', desc: tr.querySelector('.val-desc').value, cat: tr.querySelector('.val-type').value, prix: parseFloat(tr.querySelector('.val-prix').value) || 0 }); 
-        });
-        
-        // Créer l'objet de données
-        const tempData = { 
-            client: { civility: document.getElementById('client_civility').value, nom: document.getElementById('client_nom').value, adresse: document.getElementById('client_adresse').value }, 
-            defunt: { civility: document.getElementById('defunt_civility').value, nom: document.getElementById('defunt_nom').value }, 
-            info: { type: document.getElementById('doc_type').value, date: document.getElementById('doc_date').value, numero: document.getElementById('doc_numero').value, total: parseFloat(document.getElementById('total_display').innerText) }, 
-            lignes: lignes, paiements: paiements 
-        };
+    document.getElementById('btn-pdf').addEventListener('click', () => { if(!logoBase64) chargerLogoBase64(); const { jsPDF } = window.jspdf; const doc = new jsPDF(); if (logoBase64) { try { doc.addImage(logoBase64,'PNG', 15, 10, 25, 25); } catch(e){} } doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(34, 155, 76); doc.text("POMPES FUNEBRES", 15, 40); doc.text("SOLIDAIRE PERPIGNAN", 15, 45); doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(80); doc.text("32 boulevard Léon Jean Grégory Thuir", 15, 50); doc.text("Tél : 07.55.18.27.77", 15, 54); doc.setFillColor(245, 245, 245); doc.roundedRect(110, 10, 85, 30, 2, 2, 'F'); doc.setFontSize(10); doc.setTextColor(0); doc.setFont("helvetica","bold"); doc.text(`${document.getElementById('client_civility').value} ${document.getElementById('client_nom').value}`, 115, 18); doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(doc.splitTextToSize(document.getElementById('client_adresse').value, 80), 115, 24); let y = 65; doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.setTextColor(34, 155, 76); const typeDoc = document.getElementById('doc_type').value; const numDoc = document.getElementById('doc_numero').value; doc.text(`${typeDoc} N° ${numDoc}`, 15, y); doc.setTextColor(0); doc.setFont("helvetica","normal"); doc.text(`du ${document.getElementById('doc_date').value.split('-').reverse().join('/')}`, 80, y); doc.setFont("helvetica","bold"); doc.text(`DÉFUNT : ${document.getElementById('defunt_civility').value} ${document.getElementById('defunt_nom').value}`, 120, y); y += 8; const rows = []; document.querySelectorAll('#tbody_lignes tr').forEach(tr => { if(tr.classList.contains('row-section')) { rows.push([{ content: tr.querySelector('input').value.toUpperCase(), colSpan: 4, styles: { fillColor: [255, 228, 196], textColor: [0,0,0], fontStyle: 'bold', fontSize: 8 } }]); } else { const prix = parseFloat(tr.querySelector('.val-prix').value).toFixed(2) + ' €'; rows.push([tr.querySelector('.val-desc').value, 'NA', tr.querySelector('.val-type').value === 'Optionnel' ? '' : prix, tr.querySelector('.val-type').value === 'Optionnel' ? prix : '']); } }); doc.autoTable({ startY: y, head: [['DÉSIGNATION', 'TVA', 'PRESTATIONS\nCOURANTES', 'PRESTATIONS\nOPTIONNELLES']], body: rows, theme: 'grid', headStyles: { fillColor: [230, 230, 230], textColor: [0,0,0], fontSize: 8, halign: 'center' }, styles: { fontSize: 8 }, columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } } }); const finalY = doc.lastAutoTable.finalY + 8; const total = parseFloat(document.getElementById('total_display').innerText); const dejaRegle = paiements.reduce((sum, p) => sum + p.montant, 0); const reste = total - dejaRegle; let curY = finalY; doc.setFontSize(9); doc.setTextColor(0); doc.text("Total TTC :", 130, curY); doc.text(total.toFixed(2) + " €", 190, curY, {align:'right'}); curY+=5; if(paiements.length > 0) { doc.setFontSize(7); doc.setTextColor(100); paiements.forEach(p => { doc.text(`Reçu (${p.mode}) :`, 130, curY); doc.text(`-${p.montant.toFixed(2)} €`, 190, curY, {align:'right'}); curY+=4; }); curY+=2; } doc.setDrawColor(34, 155, 76); doc.setLineWidth(0.5); doc.rect(125, curY-4, 70, 10); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(34, 155, 76); doc.text("RESTE À PAYER :", 128, curY+3); doc.text(reste.toFixed(2) + " €", 192, curY+3, {align:'right'}); doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(220, 38, 38); doc.text("NB :", 15, curY + 5); doc.setTextColor(0); doc.setFont("helvetica", "normal"); doc.text("- (NA) TVA non applicable, art 293 B du CGI", 25, curY + 5); doc.text("- (*) Prestations et fournitures obligatoires", 25, curY + 9); if (typeDoc === 'DEVIS') { let footerY = curY + 30; if (footerY + 50 > 280) { doc.addPage(); footerY = 20; } doc.setDrawColor(0); doc.setLineWidth(0.5); doc.rect(15, footerY, 180, 40); doc.setFontSize(9); doc.setTextColor(0); doc.setFont("helvetica", "normal"); doc.text("Je soussigné(e),", 20, footerY + 8); doc.text("accepte le présent devis prévisionnel.", 130, footerY + 8); doc.text("Le ........................................", 20, footerY + 16); doc.text("à ........................................", 80, footerY + 16); doc.text("Signature précédée de la mention \"Lu et approuvé, bon pour acceptation\"", 20, footerY + 24); doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.text(doc.splitTextToSize("Conformément à l'article 5 de l'arrêté du 11 janvier 1999, lorsque le devis est accepté, un bon de commande est alors établi et signé par le client.", 170), 20, footerY + 32); } doc.save(`${typeDoc}_${numDoc}.pdf`); });
 
-        // Générer avec le moteur V23
-        const pdfDoc = new window.jspdf.jsPDF();
-        genererContenuPDF(pdfDoc, tempData);
-        pdfDoc.save(`${tempData.info.type}_${tempData.info.numero}.pdf`);
-    });
     // MENU MOBILE
     window.toggleMobileMenu = function() {
         const sidebar = document.querySelector('.sidebar');
