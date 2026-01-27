@@ -311,6 +311,8 @@
     import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, getDoc } from "./js/config.js";
 
     let logoBase64 = null;
+    // AJOUT : variable pour le RIB
+    let ribBase64 = null;
     let paiements = [];
     let dossiersCache = [];
     let cacheDepenses = [];
@@ -319,8 +321,22 @@
     const currentYear = new Date().getFullYear();
     let currentSort = { col: 'date', order: 'desc' }; 
 
-    function chargerLogoBase64() { const img = document.getElementById('logo-source'); if (img && img.naturalWidth > 0) { const c = document.createElement("canvas"); c.width=img.naturalWidth; c.height=img.naturalHeight; c.getContext("2d").drawImage(img,0,0); try{logoBase64=c.toDataURL("image/png");}catch(e){} } }
-    setTimeout(chargerLogoBase64, 1000);
+    // FONCTION MODIFIÉE POUR CHARGER LOGO ET RIB
+    function chargerImagesBase64() {
+        // Charge Logo
+        const imgLogo = document.getElementById('logo-source');
+        if (imgLogo && imgLogo.naturalWidth > 0) {
+            const c = document.createElement("canvas"); c.width=imgLogo.naturalWidth; c.height=imgLogo.naturalHeight;
+            c.getContext("2d").drawImage(imgLogo,0,0); try{logoBase64=c.toDataURL("image/png");}catch(e){}
+        }
+        // AJOUT : Charge RIB
+        const imgRib = document.getElementById('rib-source');
+        if (imgRib && imgRib.naturalWidth > 0) {
+            const c = document.createElement("canvas"); c.width=imgRib.naturalWidth; c.height=imgRib.naturalHeight;
+            c.getContext("2d").drawImage(imgRib,0,0); try{ribBase64=c.toDataURL("image/png");}catch(e){}
+        }
+    }
+    setTimeout(chargerImagesBase64, 1000);
     
     function updateFinancialDashboard() {
         document.getElementById('stat-ca').innerText = global_CA.toFixed(2) + " €";
@@ -426,8 +442,7 @@
         } catch(e) { console.error(e); tbody.innerHTML = `<tr><td colspan="8" style="color:red;">Erreur : ${e.message}</td></tr>`; }
     };
 
-    // --- VISUALISATION PDF SANS TÉLÉCHARGEMENT ---
-  // --- VISUALISATION PDF SANS TÉLÉCHARGEMENT (CORRIGÉE) ---
+    // --- VISUALISATION PDF SANS TÉLÉCHARGEMENT (CORRIGÉE) ---
     window.visualiserPDF = async function(id) {
         try {
             // Ici "doc" fait référence à Firebase (c'est correct)
@@ -438,7 +453,7 @@
             const data = docSnap.data();
             
             // Génération PDF
-            if(!logoBase64) chargerLogoBase64();
+            if(!logoBase64) chargerImagesBase64();
             const { jsPDF } = window.jspdf;
             
             // ON RENOMME "doc" EN "pdf" POUR ÉVITER LE CONFLIT
@@ -646,7 +661,7 @@
             { desc: 'Maître de cérémonie (Organisation & Gestion)', prix: 200, cat: 'Optionnel' },
             { desc: 'Frais de culte', prix: 220, cat: 'Optionnel' },
             { desc: 'Registre de condoléances', prix: 35, cat: 'Optionnel' },
-          
+           
             { type: 'section', text: '4. TRANSPORT' },
             { desc: 'Transport vers Aéroport (France)', prix: 350, cat: 'Courant' },
             { desc: 'Fret Aérien ', prix: 1800, cat: 'Avance' }
@@ -691,240 +706,115 @@
 
     document.getElementById('btn-save').addEventListener('click', async () => { const btn = document.getElementById('btn-save'); const id = document.getElementById('current_doc_id').value; btn.innerHTML = '...'; try { const lignes = []; document.querySelectorAll('#tbody_lignes tr').forEach(tr => { if(tr.classList.contains('row-section')) lignes.push({ type: 'section', text: tr.querySelector('input').value }); else lignes.push({ type: 'item', desc: tr.querySelector('.val-desc').value, cat: tr.querySelector('.val-type').value, prix: parseFloat(tr.querySelector('.val-prix').value) || 0 }); }); const docData = { client: { civility: document.getElementById('client_civility').value, nom: document.getElementById('client_nom').value, adresse: document.getElementById('client_adresse').value }, defunt: { civility: document.getElementById('defunt_civility').value, nom: document.getElementById('defunt_nom').value }, info: { type: document.getElementById('doc_type').value, date: document.getElementById('doc_date').value, numero: document.getElementById('doc_numero').value, total: parseFloat(document.getElementById('total_display').innerText) }, lignes: lignes, paiements: paiements, date_creation: new Date().toISOString() }; if(id) await updateDoc(doc(db, "factures_v2", id), docData); else await addDoc(collection(db, "factures_v2"), docData); alert("✅ Enregistré !"); window.showDashboard(); } catch(e) { alert("Erreur : " + e.message); } btn.innerHTML = '<i class="fas fa-save"></i> ENREGISTRER'; });
 
-    // --- GESTION PDF OPTIMISÉE (DEVIS COMPACT & FACTURE AVEC RIB) ---
+    // --- GESTION PDF (VOTRE MODÈLE EXACT AVEC AJOUTS RIB/MENTION) ---
     document.getElementById('btn-pdf').addEventListener('click', () => {
-        // 1. Initialisation
-        if (!logoBase64) chargerLogoBase64();
+        if(!logoBase64 || !ribBase64) chargerImagesBase64();
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
-        // Couleurs de la charte
-        const colorMain = [34, 155, 76]; // Vert PF
-        const colorLight = [245, 245, 245]; // Gris fond
 
-        // 2. En-tête (Logo + Entreprise)
-        if (logoBase64) {
-            try { doc.addImage(logoBase64, 'PNG', 15, 10, 25, 25); } catch (e) {}
-        }
-        
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(...colorMain);
-        doc.text("POMPES FUNEBRES", 15, 40);
-        doc.text("SOLIDAIRE PERPIGNAN", 15, 45);
-        
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(80);
-        doc.text("32 boulevard Léon Jean Grégory Thuir", 15, 50);
-        doc.text("Tél : 07.55.18.27.77", 15, 54);
-
-        // 3. Infos Client (Cadre gris à droite)
-        doc.setFillColor(...colorLight);
-        doc.roundedRect(110, 10, 85, 30, 2, 2, 'F');
-        
-        doc.setFontSize(10);
-        doc.setTextColor(0);
-        doc.setFont("helvetica", "bold");
-        const cliCiv = document.getElementById('client_civility').value;
-        const cliNom = document.getElementById('client_nom').value;
-        doc.text(`${cliCiv} ${cliNom}`, 115, 18);
-        
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        const cliAddr = document.getElementById('client_adresse').value || "";
-        doc.text(doc.splitTextToSize(cliAddr, 80), 115, 24);
-
-        // 4. Titre du Document
-        let y = 65;
-        const typeDoc = document.getElementById('doc_type').value; // DEVIS ou FACTURE
+        // --- EN-TÊTE (VOTRE MODÈLE) ---
+        if (logoBase64) { try { doc.addImage(logoBase64,'PNG', 15, 10, 25, 25); } catch(e){} }
+        doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(34, 155, 76);
+        doc.text("POMPES FUNEBRES", 15, 40); doc.text("SOLIDAIRE PERPIGNAN", 15, 45);
+        doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(80);
+        doc.text("32 boulevard Léon Jean Grégory Thuir", 15, 50); doc.text("Tél : 07.55.18.27.77", 15, 54);
+        doc.setFillColor(245, 245, 245); doc.roundedRect(110, 10, 85, 30, 2, 2, 'F');
+        doc.setFontSize(10); doc.setTextColor(0); doc.setFont("helvetica","bold");
+        doc.text(`${document.getElementById('client_civility').value} ${document.getElementById('client_nom').value}`, 115, 18);
+        doc.setFont("helvetica","normal"); doc.setFontSize(9);
+        doc.text(doc.splitTextToSize(document.getElementById('client_adresse').value, 80), 115, 24);
+        let y = 65; doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.setTextColor(34, 155, 76);
+        const typeDoc = document.getElementById('doc_type').value;
         const numDoc = document.getElementById('doc_numero').value;
-        const rawDate = document.getElementById('doc_date').value;
-        const dateDoc = rawDate ? rawDate.split('-').reverse().join('/') : "";
+        doc.text(`${typeDoc} N° ${numDoc}`, 15, y); doc.setTextColor(0); doc.setFont("helvetica","normal");
+        doc.text(`du ${document.getElementById('doc_date').value.split('-').reverse().join('/')}`, 80, y);
+        doc.setFont("helvetica","bold"); doc.text(`DÉFUNT : ${document.getElementById('defunt_civility').value} ${document.getElementById('defunt_nom').value}`, 120, y); y += 8;
 
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...colorMain);
-        doc.text(`${typeDoc} N° ${numDoc}`, 15, y);
-        
-        doc.setTextColor(0);
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Date : ${dateDoc}`, 15, y + 6);
-
-        // Infos Défunt
-        doc.setFont("helvetica", "bold");
-        const defCiv = document.getElementById('defunt_civility').value;
-        const defNom = document.getElementById('defunt_nom').value;
-        doc.text(`DÉFUNT : ${defCiv} ${defNom}`, 120, y);
-        
-        y += 12;
-
-        // 5. Préparation des données du Tableau
+        // --- TABLEAU (VOTRE MODÈLE) ---
         const rows = [];
         document.querySelectorAll('#tbody_lignes tr').forEach(tr => {
-            if (tr.classList.contains('row-section')) {
-                // Ligne de Section
-                const input = tr.querySelector('input');
-                const text = input ? input.value.toUpperCase() : "SECTION";
-                rows.push([{ 
-                    content: text, 
-                    colSpan: 4, 
-                    styles: { 
-                        fillColor: [236, 253, 245], 
-                        textColor: colorMain, 
-                        fontStyle: 'bold', 
-                        halign: 'left' 
-                    } 
-                }]);
+            if(tr.classList.contains('row-section')) {
+                rows.push([{ content: tr.querySelector('input').value.toUpperCase(), colSpan: 4, styles: { fillColor: [255, 228, 196], textColor: [0,0,0], fontStyle: 'bold', fontSize: 8 } }]);
             } else {
-                // Ligne standard
-                const descInput = tr.querySelector('.val-desc');
-                const prixInput = tr.querySelector('.val-prix');
-                const typeInput = tr.querySelector('.val-type');
-
-                if (descInput && prixInput) {
-                    const desc = descInput.value;
-                    const typePrest = typeInput ? typeInput.value : 'Courant';
-                    const prixVal = parseFloat(prixInput.value) || 0;
-                    const prixStr = prixVal.toFixed(2) + ' €';
-
-                    const colCourant = typePrest !== 'Optionnel' ? prixStr : '';
-                    const colOption = typePrest === 'Optionnel' ? prixStr : '';
-
-                    rows.push([desc, 'NA', colCourant, colOption]);
-                }
+                const prix = parseFloat(tr.querySelector('.val-prix').value).toFixed(2) + ' €';
+                rows.push([tr.querySelector('.val-desc').value, 'NA', tr.querySelector('.val-type').value === 'Optionnel' ? '' : prix, tr.querySelector('.val-type').value === 'Optionnel' ? prix : '']);
             }
         });
-
-        // 6. Génération du Tableau
         doc.autoTable({
-            startY: y,
-            head: [['DÉSIGNATION DES PRESTATIONS', 'TVA', 'COURANT', 'OPTIONNEL']],
-            body: rows,
-            theme: 'grid',
-            headStyles: { 
-                fillColor: [241, 245, 249], 
-                textColor: [71, 85, 105], 
-                fontSize: 8, 
-                fontStyle: 'bold',
-                halign: 'center'
-            },
-            styles: { fontSize: 8, cellPadding: 3 },
-            columnStyles: { 
-                0: { cellWidth: 'auto' }, 
-                1: { cellWidth: 15, halign: 'center' },
-                2: { cellWidth: 25, halign: 'right' },
-                3: { cellWidth: 25, halign: 'right' }
-            },
-            didDrawPage: function (data) { y = data.cursor.y; }
+            startY: y, head: [['DÉSIGNATION', 'TVA', 'PRESTATIONS\nCOURANTES', 'PRESTATIONS\nOPTIONNELLES']], body: rows, theme: 'grid',
+            headStyles: { fillColor: [230, 230, 230], textColor: [0,0,0], fontSize: 8, halign: 'center' },
+            styles: { fontSize: 8 }, columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } }
         });
+        const finalY = doc.lastAutoTable.finalY + 10;
 
-        // 7. Calculs Totaux
-        const totalDisplay = parseFloat(document.getElementById('total_display').innerText) || 0;
-        let totalPaye = 0;
-        if (typeof paiements !== 'undefined') {
-            totalPaye = paiements.reduce((sum, p) => sum + p.montant, 0);
-        }
-        const reste = totalDisplay - totalPaye;
+        // --- CALCULS TOTAUX (VOTRE MODÈLE) ---
+        const total = parseFloat(document.getElementById('total_display').innerText);
+        const dejaRegle = paiements.reduce((sum, p) => sum + p.montant, 0);
+        const reste = total - dejaRegle;
+        let curY = finalY;
         
-        y += 10; 
-
-        // --- MISE EN PAGE SPÉCIFIQUE ---
-
+        // --- BLOC BAS DE PAGE (MODIFIÉ POUR INCLURE RIB ET MENTION SI FACTURE) ---
         if (typeDoc === 'FACTURE') {
-            // === MODE FACTURE (RIB + Totaux) ===
-            if (y + 50 > 280) { doc.addPage(); y = 20; }
+            // SI C'EST UNE FACTURE : AJOUT RIB IMAGE + MENTION PAIEMENT
+            if (curY + 60 > 280) { doc.addPage(); curY = 20; } // Saut de page si nécessaire
 
-            // CADRE GAUCHE : RIB & PAIEMENT
-            doc.setDrawColor(200);
-            doc.setLineWidth(0.1);
-            doc.setFillColor(250, 250, 250);
-            doc.rect(15, y, 95, 35, 'FD'); 
-
-            doc.setFontSize(9);
-            doc.setTextColor(0);
-            doc.setFont("helvetica", "bold");
-            doc.text("CONDITIONS DE RÈGLEMENT :", 18, y + 6);
-            doc.setTextColor(...colorMain);
-            doc.text("À payer dès réception de la facture.", 18, y + 11);
+            // Mention "À payer"
+            doc.setFontSize(9); doc.setTextColor(34, 155, 76); doc.setFont("helvetica", "bold");
+            doc.text(`Somme de ${reste.toFixed(2)} € à payer dès réception de la facture.`, 15, curY + 5);
             
-            doc.setTextColor(0);
-            doc.setFont("helvetica", "bold");
-            doc.text("Coordonnées Bancaires (RIB) :", 18, y + 20);
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8.5);
-            // VOTRE RIB ICI
-            doc.text("Banque : CRÉDIT AGRICOLE", 18, y + 25);
-            doc.text("IBAN : FR76 1660 7000 0738 2217 4454 393", 18, y + 30);
-
-            // BLOC DROITE : TOTAUX
-            let yTotal = y + 5;
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "bold");
-            doc.text("TOTAL TTC :", 140, yTotal);
-            doc.text(totalDisplay.toFixed(2) + " €", 195, yTotal, { align: 'right' });
-            
-            if (totalPaye > 0) {
-                yTotal += 6;
-                doc.setFont("helvetica", "normal");
-                doc.setTextColor(100);
-                doc.text("Déjà réglé :", 140, yTotal);
-                doc.text("-" + totalPaye.toFixed(2) + " €", 195, yTotal, { align: 'right' });
+            // Image RIB
+            if (ribBase64) {
+                try { 
+                    // Ajustez les dimensions (w, h) selon votre image RIB
+                    doc.addImage(ribBase64, 'PNG', 15, curY + 10, 90, 40); 
+                } catch(e){}
             }
-
-            yTotal += 8;
-            doc.setDrawColor(...colorMain);
-            doc.setLineWidth(0.5);
-            doc.rect(135, yTotal - 5, 62, 12); // Cadre Vert
-            
-            doc.setTextColor(...colorMain);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(12);
-            doc.text("NET À PAYER :", 138, yTotal + 3);
-            doc.text(reste.toFixed(2) + " €", 192, yTotal + 3, { align: 'right' });
 
         } else {
-            // === MODE DEVIS (Signature Compacte) ===
-            
-            // Vérification intelligente de l'espace restant
-            if (y + 45 > 290) { doc.addPage(); y = 20; }
-
-            // Total avant signature
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(0);
-            doc.text("Montant Total TTC Estimatif :", 130, y);
-            doc.text(totalDisplay.toFixed(2) + " €", 195, y, { align: 'right' });
-            
-            y += 8; 
-
-            // Cadre Signature
-            doc.setDrawColor(0);
-            doc.setLineWidth(0.2);
-            doc.rect(15, y, 180, 40); 
-            
-            doc.setFontSize(9);
-            doc.setTextColor(0);
-            doc.setFont("helvetica", "normal");
-            doc.text("Je soussigné(e),", 20, y + 8);
-            doc.text("accepte le présent devis prévisionnel.", 120, y + 8);
-            
-            doc.text("Fait à ........................................", 20, y + 18);
-            doc.text("Le ........................................", 120, y + 18);
-            
-            doc.setFontSize(8);
-            doc.text("Signature (précédée de la mention 'Lu et approuvé')", 20, y + 32);
-            
-            y += 45;
-            doc.setFontSize(7);
-            doc.setTextColor(100);
-            doc.text("Devis gratuit et valable 3 mois.", 105, y, { align: 'center' });
+            // SI C'EST UN DEVIS : VOTRE CADRE SIGNATURE HABITUEL
+             if (curY + 50 > 280) { doc.addPage(); curY = 20; }
+             doc.setDrawColor(0); doc.setLineWidth(0.5); doc.rect(15, curY, 180, 40);
+             doc.setFontSize(9); doc.setTextColor(0); doc.setFont("helvetica", "normal");
+             doc.text("Je soussigné(e),", 20, curY + 8); doc.text("accepte le présent devis prévisionnel.", 130, curY + 8);
+             doc.text("Le ........................................", 20, curY + 16); doc.text("à ........................................", 80, curY + 16);
+             doc.text("Signature précédée de la mention \"Lu et approuvé, bon pour acceptation\"", 20, curY + 24);
+             // On descend curY pour que les totaux ne chevauchent pas la signature
+             curY += 45;
         }
 
-        // 8. Sauvegarde
+        // --- TOTAUX À DROITE (VOTRE MODÈLE, POSITION FIXÉE) ---
+        // On force la position des totaux à droite, quelle que soit la hauteur du bloc de gauche
+        let totalsY = Math.max(finalY, curY - (typeDoc === 'DEVIS' ? 45 : 0)); // On s'aligne
+        if (typeDoc === 'FACTURE') totalsY = finalY; // Pour la facture, on aligne les totaux juste sous le tableau
+
+        doc.setFontSize(9); doc.setTextColor(0);
+        doc.text("Total TTC :", 130, totalsY); doc.text(total.toFixed(2) + " €", 190, totalsY, {align:'right'}); totalsY+=5;
+        if(paiements.length > 0) {
+            doc.setFontSize(7); doc.setTextColor(100);
+            paiements.forEach(p => {
+                doc.text(`Reçu (${p.mode}) :`, 130, totalsY);
+                doc.text(`-${p.montant.toFixed(2)} €`, 190, totalsY, {align:'right'}); totalsY+=4;
+            });
+            totalsY+=2;
+        }
+        doc.setDrawColor(34, 155, 76); doc.setLineWidth(0.5); doc.rect(125, totalsY-4, 70, 10);
+        doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(34, 155, 76);
+        doc.text("RESTE À PAYER :", 128, totalsY+3); doc.text(reste.toFixed(2) + " €", 192, totalsY+3, {align:'right'});
+
+        // --- MENTIONS LÉGALES BAS DE PAGE (VOTRE MODÈLE) ---
+        let footerY = Math.max(curY + (typeDoc === 'FACTURE' ? 55 : 5), totalsY + 20);
+        doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(220, 38, 38);
+        doc.text("NB :", 15, footerY); doc.setTextColor(0); doc.setFont("helvetica", "normal");
+        doc.text("- (NA) TVA non applicable, art 293 B du CGI", 25, footerY);
+        doc.text("- (*) Prestations et fournitures obligatoires", 25, footerY + 4);
+        if (typeDoc === 'DEVIS') {
+            footerY += 8; doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+            doc.text(doc.splitTextToSize("Conformément à l'article 5 de l'arrêté du 11 janvier 1999, lorsque le devis est accepté, un bon de commande est alors établi et signé par le client.", 170), 15, footerY);
+        }
+        
         doc.save(`${typeDoc}_${numDoc}.pdf`);
     });
+
     // MENU MOBILE
     window.toggleMobileMenu = function() {
         const sidebar = document.querySelector('.sidebar');
