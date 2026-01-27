@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PF Solidaire FAC 20</title>
+    <title>PF Solidaire - Facturation V19 (Visualisation)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -310,6 +310,7 @@
 <script type="module">
     import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, getDoc } from "./js/config.js";
 
+    // --- VARIABLES GLOBALES ---
     let logoBase64 = null;
     let paiements = [];
     let dossiersCache = [];
@@ -319,7 +320,7 @@
     const currentYear = new Date().getFullYear();
     let currentSort = { col: 'date', order: 'desc' }; 
 
-    // CHARGEMENT DU LOGO UNIQUEMENT
+    // --- 1. CHARGEMENT LOGO ---
     function chargerLogoBase64() { 
         const img = document.getElementById('logo-source'); 
         if (img && img.naturalWidth > 0) { 
@@ -329,19 +330,16 @@
     }
     setTimeout(chargerLogoBase64, 1000);
 
-    // --- CŒUR DU SYSTÈME : GÉNÉRATEUR PDF UNIQUE ---
-    // Cette fonction sert pour les deux boutons (Imprimer ET Visualiser)
+    // --- 2. FONCTION MAGIQUE PDF (Gère Impression ET Visualisation) ---
     window.generatePDFFromData = function(data, saveMode = false) {
         if(!logoBase64) chargerLogoBase64();
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        // 1. EN-TÊTE
+        // En-tête Vert
         if (logoBase64) { try { doc.addImage(logoBase64,'PNG', 15, 10, 25, 25); } catch(e){} }
-        
         doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(34, 155, 76);
         doc.text("POMPES FUNEBRES", 15, 40); doc.text("SOLIDAIRE PERPIGNAN", 15, 45);
-        
         doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(80);
         doc.text("32 boulevard Léon Jean Grégory Thuir", 15, 50); doc.text("Tél : 07.55.18.27.77", 15, 54);
 
@@ -352,10 +350,10 @@
         doc.setFont("helvetica","normal"); doc.setFontSize(9);
         doc.text(doc.splitTextToSize(data.client.adresse || "", 80), 115, 24);
 
-        // Titres
+        // Titres Document
         let y = 65; doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.setTextColor(34, 155, 76);
         const typeDoc = data.info.type || "DOCUMENT";
-        const numDoc = data.info.numero || "BA-000";
+        const numDoc = data.info.numero || "REF-000";
         doc.text(`${typeDoc} N° ${numDoc}`, 15, y); 
         
         doc.setTextColor(0); doc.setFont("helvetica","normal");
@@ -366,12 +364,12 @@
         doc.text(`DÉFUNT : ${data.defunt.civility || ''} ${data.defunt.nom || ''}`, 120, y); 
         y += 8;
 
-        // 2. TABLEAU
+        // Tableau des Prestations
         const rows = [];
         if(data.lignes) {
             data.lignes.forEach(l => {
                 if(l.type === 'section') {
-                    rows.push([{ content: (l.text || "").toUpperCase(), colSpan: 4, styles: { fillColor: [255, 228, 196], textColor: [0,0,0], fontStyle: 'bold', fontSize: 8 } }]);
+                    rows.push([{ content: (l.text || "").toUpperCase(), colSpan: 4, styles: { fillColor: [236, 253, 245], textColor: [0,0,0], fontStyle: 'bold', fontSize: 8 } }]);
                 } else {
                     const prix = parseFloat(l.prix).toFixed(2) + ' €';
                     rows.push([l.desc, 'NA', l.cat === 'Optionnel' ? '' : prix, l.cat === 'Optionnel' ? prix : '']);
@@ -392,41 +390,37 @@
         const finalY = doc.lastAutoTable.finalY + 10;
         let curY = finalY;
 
-        // 3. CALCULS
+        // Calculs
         const total = parseFloat(data.info.total) || 0;
         const dejaRegle = data.paiements ? data.paiements.reduce((sum, p) => sum + p.montant, 0) : 0;
         const reste = total - dejaRegle;
 
-        // --- BLOCS INTELLIGENTS (RIB ou SIGNATURE) ---
+        // --- BLOCS INTELLIGENTS (RIB vs SIGNATURE) ---
         
         if (typeDoc === 'FACTURE') {
-            // === MODE FACTURE : CADRE RIB + NET À PAYER ===
+            // === C'EST UNE FACTURE : ON MET LE RIB ET LA MENTION ===
             if (curY + 50 > 280) { doc.addPage(); curY = 20; }
             
-            // Cadre Gris
+            // Cadre Gris pour RIB
             doc.setDrawColor(200); doc.setFillColor(250, 250, 250);
             doc.rect(15, curY, 105, 45, 'FD');
 
-            // Mention NET À PAYER (Vert)
+            // Mention "Somme à payer" en Vert
             doc.setFontSize(10); doc.setTextColor(34, 155, 76); doc.setFont("helvetica", "bold");
-            doc.text(`NET À PAYER : ${reste.toFixed(2)} €`, 20, curY + 8);
-            doc.setFontSize(8); doc.setFont("helvetica", "normal");
-            doc.text("(à régler dès réception de la facture)", 20, curY + 12);
+            doc.text(`Somme de ${reste.toFixed(2)} € à payer dès réception.`, 20, curY + 8);
 
-            // RIB TEXTE (Basé sur votre image)
+            // RIB TEXTE (Vos informations exactes)
             doc.setTextColor(0); doc.setFontSize(9); doc.setFont("helvetica", "bold");
-            doc.text("Coordonnées Bancaires :", 20, curY + 19);
+            doc.text("Coordonnées Bancaires (Virement) :", 20, curY + 16);
             
             doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
-            doc.text("Banque : BANQUE POPULAIRE DU SUD", 20, curY + 24);
-            doc.text("Titulaire : EI POMPES FUNEBRES SOLIDAIRE", 20, curY + 29);
-            // VOTRE IBAN
-            doc.text("IBAN : FR76 1660 7000 0738 2217 4454 393", 20, curY + 34);
-            doc.text("BIC : CCBPFRPPPPG", 20, curY + 39);
+            doc.text("Banque : BANQUE POPULAIRE DU SUD", 20, curY + 22);
+            doc.text("Titulaire : EI POMPES FUNEBRES SOLIDAIRE", 20, curY + 27);
+            doc.text("IBAN : FR76 1660 7000 0738 2217 4454 393", 20, curY + 32);
+            doc.text("BIC : CCBPFRPPPPG", 20, curY + 37);
 
         } else {
-            // === MODE DEVIS : SIGNATURE ===
-             // Saut de page intelligent si pas assez de place
+            // === C'EST UN DEVIS : CADRE SIGNATURE ===
              if (curY > 240) { doc.addPage(); curY = 20; }
              
              doc.setDrawColor(0); doc.setLineWidth(0.5); doc.rect(15, curY, 180, 40);
@@ -435,20 +429,17 @@
              doc.text("Le ........................................", 20, curY + 16); doc.text("à ........................................", 80, curY + 16);
              doc.text("Signature précédée de la mention \"Lu et approuvé\"", 20, curY + 24);
              
-             // Mention légale Devis
              doc.setFont("helvetica", "bold"); doc.setFontSize(7);
              const mentionDevis = "Conformément à l'article 5 de l'arrêté du 11 janvier 1999, lorsque le devis est accepté, un bon de commande est alors établi et signé par le client.";
              doc.text(doc.splitTextToSize(mentionDevis, 170), 20, curY + 32);
              
-             curY += 45;
+             curY += 45; // On pousse vers le bas pour ne pas chevaucher
         }
 
-        // 4. TOTAUX À DROITE
-        // On aligne les totaux avec le haut du bloc de gauche (sauf si devis où on descend)
+        // Totaux à Droite
         let totalsY = (typeDoc === 'DEVIS') ? curY - 45 : finalY; 
-        if (typeDoc === 'FACTURE') totalsY = finalY; // Pour facture, on reste collé au tableau
+        if (typeDoc === 'FACTURE') totalsY = finalY; // Pour facture, on reste en haut
         
-        // Sécurité saut de page pour les totaux
         if (totalsY > 260) { totalsY = 20; if(typeDoc==='FACTURE') doc.addPage(); }
 
         doc.setFontSize(9); doc.setTextColor(0);
@@ -471,7 +462,7 @@
         doc.text("RESTE À PAYER :", 128, payY + 7); 
         doc.text(reste.toFixed(2) + " €", 192, payY + 7, {align:'right'});
 
-        // 5. MENTIONS LÉGALES BAS DE PAGE
+        // Mentions Légales Pied de page
         let footerY = Math.max(curY, payY + 20);
         if (typeDoc === 'FACTURE') footerY = Math.max(curY + 45, payY + 20);
 
@@ -487,9 +478,9 @@
         }
     };
 
-    // --- ÉVÈNEMENT DU BOUTON PDF (EDITEUR) ---
+    // --- 3. ÉVÈNEMENTS BOUTONS ---
+    // Bouton PDF (Écran Édition)
     document.getElementById('btn-pdf').addEventListener('click', () => {
-        // Récupérer les données de l'écran
         const lignes = [];
         document.querySelectorAll('#tbody_lignes tr').forEach(tr => {
             if(tr.classList.contains('row-section')) {
@@ -527,8 +518,7 @@
         window.generatePDFFromData(dataEcran, true); // true = Télécharger
     });
 
-    // --- FONCTION DE VISUALISATION (OEIL) ---
-    // Cette fonction récupère les données de Firebase et lance le générateur
+    // Bouton Visualiser (Liste - Oeil)
     window.visualiserPDF = async function(id) {
         try {
             const docRef = doc(db, "factures_v2", id);
@@ -536,15 +526,112 @@
             if(!docSnap.exists()) return alert("Document introuvable");
             
             const data = docSnap.data();
-            // On appelle la même fonction de génération
-            window.generatePDFFromData(data, false); // false = Ouvrir onglet
+            // false = Ouvrir dans nouvel onglet (Visualisation)
+            window.generatePDFFromData(data, false); 
         } catch(e) { 
             console.error(e); 
             alert("Erreur visualisation : " + e.message); 
         }
     };
 
-    // --- RESTE DU CODE (FONCTIONS STANDARDS) ---
+    // --- 4. FONCTIONS DE BASE ET DONNÉES ---
+    
+    // Modèles exacts restaurés
+  const MODELES = {
+        "Inhumation": [
+            { type: 'section', text: 'PREPARATION/ORGANISATION DES OBSEQUES' },
+            { desc: 'Démarches administratives', prix: 250, cat: 'Courant' },
+            { desc: 'Vacation de Police (Pose de scellés)', prix: 25, cat: 'Avance' },
+            { type: 'section', text: 'PRÉPARATION DU DÉFUNT' },
+            { desc: 'Toilette et habillage défunt (e)', prix: 150, cat: 'Courant' },
+            { desc: 'Séjour en chambre funéraire (Forfait 3 jours)', prix: 350, cat: 'Optionnel' },
+            { type: 'section', text: 'TRANSPORT AVANT MISE EN BIERE' },
+            { desc: 'Transport avant mise en bière', prix: 250, cat: 'Courant' },
+            { type: 'section', text: '3. CERCUEIL & ACCESSOIRES' },
+            { desc: 'Cercueil Azur inhumation (avec quatre poignées en métal cache vis plastique, et cuvette biodégradable)', prix: 850, cat: 'Courant' },
+            { desc: 'Capiton (Tissu intérieur)', prix: 80, cat: 'Courant' },
+            { desc: 'Plaque d\'identité gravée (Obligatoire)', prix: 25, cat: 'Courant' },
+            { desc: 'Emblème religieux / Civil', prix: 40, cat: 'Optionnel' },
+            { type: 'section', text: '4. CÉRÉMONIE & CONVOI' },
+            { desc: 'Corbillard de cérémonie avec chauffeur', prix: 400, cat: 'Courant' },
+            { desc: 'Porteurs (Equipe de 4 personnes)', prix: 600, cat: 'Courant' },
+            { desc: 'Maître de cérémonie (Organisation & Gestion)', prix: 200, cat: 'Optionnel' },
+            { desc: 'Frais de culte', prix: 220, cat: 'Optionnel' },
+            { desc: 'Registre de condoléances', prix: 35, cat: 'Optionnel' },
+            { type: 'section', text: '5. CIMETIÈRE' },
+            { desc: 'Creusement et comblement de fosse / Ouverture de caveau', prix: 650, cat: 'Courant' },
+            { desc: 'Redevance inhumation (Taxe Mairie)', prix: 50, cat: 'Avance' },
+            { desc: 'Achat de concession', prix: 50, cat: 'Avance' }
+        ],
+        "Cremation": [
+            { type: 'section', text: 'PREPARATION/ORGANISATION DES OBSEQUES' },
+            { desc: 'Démarches administratives', prix: 250, cat: 'Courant' },
+            { desc: 'Vacation de Police (Pose de scellés)', prix: 25, cat: 'Avance' },
+            { type: 'section', text: 'PRÉPARATION DU DÉFUNT' },
+            { desc: 'Toilette et habillage défunt (e)', prix: 150, cat: 'Courant' },
+            { desc: 'Séjour en chambre funéraire (Forfait 3 jours)', prix: 350, cat: 'Optionnel' },
+            { type: 'section', text: 'TRANSPORT AVANT MISE EN BIERE' },
+            { desc: 'Transport avant mise en bière', prix: 250, cat: 'Courant' },
+            { type: 'section', text: '3. CERCUEIL & ACCESSOIRES' },
+            { desc: 'Cercueil Azur inhumation (avec quatre poignées en métal cache vis plastique, et cuvette biodégradable)', prix: 850, cat: 'Courant' },
+            { desc: 'Capiton (Tissu intérieur)', prix: 80, cat: 'Courant' },
+            { desc: 'Plaque d\'identité gravée (Obligatoire)', prix: 25, cat: 'Courant' },
+            { desc: 'Emblème religieux / Civil', prix: 40, cat: 'Optionnel' },
+            { type: 'section', text: '4. CÉRÉMONIE & CONVOI' },
+            { desc: 'Corbillard de cérémonie avec chauffeur', prix: 400, cat: 'Courant' },
+            { desc: 'Porteurs (Equipe de 4 personnes)', prix: 600, cat: 'Courant' },
+            { desc: 'Maître de cérémonie (Organisation & Gestion)', prix: 200, cat: 'Optionnel' },
+            { desc: 'Frais de culte', prix: 220, cat: 'Optionnel' },
+            { desc: 'Registre de condoléances', prix: 35, cat: 'Optionnel' },
+            { type: 'section', text: '4. CRÉMATORIUM' },
+            { desc: 'Frais de Crémation ', prix: 750, cat: 'Avance' },
+            { desc: 'Urne', prix: 60, cat: 'Courant' }
+        ],
+        "Rapatriement": [
+            { type: 'section', text: 'PREPARATION/ORGANISATION DES OBSEQUES' },
+            { desc: 'Démarches administratives', prix: 250, cat: 'Courant' },
+            { desc: 'Vacation de Police (Pose de scellés)', prix: 25, cat: 'Avance' },
+            { type: 'section', text: 'PRÉPARATION DU DÉFUNT' },
+            { desc: 'Toilette et habillage défunt (e)', prix: 150, cat: 'Courant' },
+            { desc: 'Séjour en chambre funéraire (Forfait 3 jours)', prix: 350, cat: 'Optionnel' },
+            { type: 'section', text: 'TRANSPORT AVANT MISE EN BIERE' },
+            { desc: 'Transport avant mise en bière', prix: 250, cat: 'Courant' },
+            { type: 'section', text: '3. CERCUEIL & ACCESSOIRES' },
+            { desc: 'Cercueil Azur Rapatriement (avec quatre poignées en métal cache vis plastique,Filtre épurateur (Norme IATA) et cuvette biodégradable)', prix: 850, cat: 'Courant' },
+            { desc: 'Capiton (Tissu intérieur)', prix: 80, cat: 'Courant' },
+            { desc: 'Plaque d\'identité gravée (Obligatoire)', prix: 25, cat: 'Courant' },
+            { desc: 'Emblème religieux / Civil', prix: 40, cat: 'Optionnel' },
+            { type: 'section', text: '4. CÉRÉMONIE & CONVOI' },
+            { desc: 'Corbillard de cérémonie avec chauffeur', prix: 400, cat: 'Courant' },
+            { desc: 'Porteurs (Equipe de 4 personnes)', prix: 600, cat: 'Courant' },
+            { desc: 'Maître de cérémonie (Organisation & Gestion)', prix: 200, cat: 'Optionnel' },
+            { desc: 'Frais de culte', prix: 220, cat: 'Optionnel' },
+            { desc: 'Registre de condoléances', prix: 35, cat: 'Optionnel' },
+            { type: 'section', text: '4. TRANSPORT' },
+            { desc: 'Transport vers Aéroport (France)', prix: 350, cat: 'Courant' },
+            { desc: 'Fret Aérien ', prix: 1800, cat: 'Avance' }
+        ],
+        "Transport": [
+            { type: 'section', text: '1. TRANSPORT DE CORPS' },
+            { desc: 'Véhicule Agréé avec Caisson', prix: 300, cat: 'Courant' },
+            { desc: 'Chauffeur / Porteur', prix: 150, cat: 'Courant' },
+            { desc: 'Housse mortuaire impérméable', prix: 45, cat: 'Courant' },
+            { desc: 'Frais kilométriques (Au-delà du forfait)', prix: 0, cat: 'Courant' }
+        ],
+        "Exhumation": [
+            { type: 'section', text: '1. TECHNIQUE' },
+            { desc: 'Démarches Mairie & Cimetière', prix: 150, cat: 'Courant' },
+            { desc: 'Ouverture de monument / Fosse', prix: 600, cat: 'Courant' },
+            { desc: 'Exhumation du corps', prix: 450, cat: 'Courant' },
+            { desc: 'Fourniture Reliquaire (Boîte à ossements)', prix: 120, cat: 'Courant' },
+            { desc: 'Réduction de corps', prix: 200, cat: 'Optionnel' },
+            { desc: 'Fermeture de sépulture', prix: 200, cat: 'Courant' },
+            { desc: 'Vacation de Police', prix: 25, cat: 'Avance' }
+        ]
+    };
+    window.loadTemplate = async function(type) { document.getElementById('modal-choix').classList.add('hidden'); window.nouveauDocument(); const num = await genererNumero('DEVIS'); document.getElementById('doc_numero').value = num; if (MODELES[type]) { document.getElementById('tbody_lignes').innerHTML = ""; MODELES[type].forEach(item => { if(item.type === 'section') window.ajouterSection(item.text); else window.ajouterLigne(item.desc, item.prix, item.cat); }); } window.calculTotal(); };
+    
+    // Fonctions essentielles (Navigation, Dashboard, CRUD)
     function updateFinancialDashboard() {
         document.getElementById('stat-ca').innerText = global_CA.toFixed(2) + " €";
         document.getElementById('stat-depenses').innerText = global_Depenses.toFixed(2) + " €";
@@ -556,15 +643,8 @@
         document.getElementById('year-display-2').innerText = currentYear;
         document.getElementById('year-display-3').innerText = currentYear;
     }
-    window.toggleSidebar = function() {
-        const sidebar = document.querySelector('.sidebar'); const overlay = document.getElementById('mobile-overlay'); const btnIcon = document.querySelector('#mobile-menu-btn i');
-        if (window.innerWidth < 768) { sidebar.classList.toggle('mobile-open'); if (sidebar.classList.contains('mobile-open')) { overlay.style.display = 'block'; btnIcon.classList.remove('fa-bars'); btnIcon.classList.add('fa-times'); } else { overlay.style.display = 'none'; btnIcon.classList.remove('fa-times'); btnIcon.classList.add('fa-bars'); } } else { sidebar.classList.toggle('collapsed'); }
-    };
-    window.switchTab = function(tab) {
-        document.getElementById('tab-factures').classList.add('hidden'); document.getElementById('tab-achats').classList.add('hidden');
-        document.getElementById('btn-tab-factures').classList.remove('active'); document.getElementById('btn-tab-achats').classList.remove('active', 'active-red');
-        if(tab === 'factures') { document.getElementById('tab-factures').classList.remove('hidden'); document.getElementById('btn-tab-factures').classList.add('active'); } else { document.getElementById('tab-achats').classList.remove('hidden'); document.getElementById('btn-tab-achats').classList.add('active-red'); window.chargerDepenses(); }
-    };
+    window.toggleSidebar = function() { const sidebar = document.querySelector('.sidebar'); const overlay = document.getElementById('mobile-overlay'); const btnIcon = document.querySelector('#mobile-menu-btn i'); if (window.innerWidth < 768) { sidebar.classList.toggle('mobile-open'); if (sidebar.classList.contains('mobile-open')) { overlay.style.display = 'block'; btnIcon.classList.remove('fa-bars'); btnIcon.classList.add('fa-times'); } else { overlay.style.display = 'none'; btnIcon.classList.remove('fa-times'); btnIcon.classList.add('fa-bars'); } } else { sidebar.classList.toggle('collapsed'); } };
+    window.switchTab = function(tab) { document.getElementById('tab-factures').classList.add('hidden'); document.getElementById('tab-achats').classList.add('hidden'); document.getElementById('btn-tab-factures').classList.remove('active'); document.getElementById('btn-tab-achats').classList.remove('active', 'active-red'); if(tab === 'factures') { document.getElementById('tab-factures').classList.remove('hidden'); document.getElementById('btn-tab-factures').classList.add('active'); } else { document.getElementById('tab-achats').classList.remove('hidden'); document.getElementById('btn-tab-achats').classList.add('active-red'); window.chargerDepenses(); } };
     window.gererDepense = async function() { const idToEdit = document.getElementById('dep_edit_id').value; const dateFac = document.getElementById('dep_date_fac').value; const ref = document.getElementById('dep_ref').value || "Non spécifié"; const fourn = document.getElementById('dep_fourn').value; const details = document.getElementById('dep_details').value || ""; const dateReg = document.getElementById('dep_date_reg').value; const cat = document.getElementById('dep_cat').value; const mode = document.getElementById('dep_mode').value; const statut = document.getElementById('dep_statut').value; const mont = parseFloat(document.getElementById('dep_montant').value); if(!dateFac || !fourn || isNaN(mont) || cat === "-- Choisir --") { return alert("Veuillez remplir : Date Facture, Fournisseur, Catégorie et Montant."); } const dataObj = { date: dateFac, date_reglement: dateReg, reference: ref, fournisseur: fourn, details: details, categorie: cat, mode: mode, statut: statut, montant: mont }; try { if(idToEdit) { await updateDoc(doc(db, "depenses", idToEdit), dataObj); alert("✅ Dépense modifiée !"); } else { dataObj.date_ajout = new Date().toISOString(); await addDoc(collection(db, "depenses"), dataObj); } window.resetFormDepense(); window.chargerDepenses(); } catch(e) { alert("Erreur : " + e.message); } };
     window.preparerModification = function(id) { const data = cacheDepenses.find(d => d.id === id); if(!data) return; document.getElementById('dep_edit_id').value = id; document.getElementById('dep_date_fac').value = data.date; document.getElementById('dep_ref').value = data.reference !== "Non spécifié" ? data.reference : ""; document.getElementById('dep_fourn').value = data.fournisseur; document.getElementById('dep_details').value = data.details || ""; document.getElementById('dep_date_reg').value = data.date_reglement || ""; document.getElementById('dep_cat').value = data.categorie; document.getElementById('dep_mode').value = data.mode; document.getElementById('dep_statut').value = data.statut; document.getElementById('dep_montant').value = data.montant; const btn = document.getElementById('btn-action-depense'); btn.innerHTML = '<i class="fas fa-edit"></i> MODIFIER'; btn.classList.remove('btn-red'); btn.classList.add('btn-blue'); document.getElementById('btn-cancel-depense').classList.remove('hidden'); document.getElementById('form-depense').scrollIntoView({behavior: "smooth"}); };
     window.resetFormDepense = function() { document.getElementById('dep_edit_id').value = ""; document.getElementById('dep_ref').value = ""; document.getElementById('dep_fourn').value = ""; document.getElementById('dep_details').value = ""; document.getElementById('dep_montant').value = ""; document.getElementById('dep_date_reg').value = ""; const btn = document.getElementById('btn-action-depense'); btn.innerHTML = '<i class="fas fa-plus"></i> ENREGISTRER'; btn.classList.add('btn-red'); btn.classList.remove('btn-blue'); document.getElementById('btn-cancel-depense').classList.add('hidden'); };
@@ -607,10 +687,15 @@
         } catch(e) { console.error(e); tbody.innerHTML = `<tr><td colspan="8" style="color:red;">Erreur : ${e.message}</td></tr>`; }
     };
     
-    // --- VOS MODÈLES EXACTS (RESTAURÉS) ---
-    const MODELES = { "Inhumation": [ { type: 'section', text: 'PREPARATION/ORGANISATION DES OBSEQUES' }, { desc: 'Démarches administratives', prix: 250, cat: 'Courant' }, { desc: 'Vacation de Police (Pose de scellés)', prix: 25, cat: 'Avance' }, { type: 'section', text: 'PRÉPARATION DU DÉFUNT' }, { desc: 'Toilette et habillage défunt (e)', prix: 150, cat: 'Courant' }, { desc: 'Séjour en chambre funéraire (Forfait 3 jours)', prix: 350, cat: 'Optionnel' }, { type: 'section', text: 'TRANSPORT AVANT MISE EN BIERE' }, { desc: 'Transport avant mise en bière', prix: 250, cat: 'Courant' }, { type: 'section', text: '3. CERCUEIL & ACCESSOIRES' }, { desc: 'Cercueil Azur inhumation (avec quatre poignées en métal cache vis plastique, et cuvette biodégradable)', prix: 850, cat: 'Courant' }, { desc: 'Capiton (Tissu intérieur)', prix: 80, cat: 'Courant' }, { desc: 'Plaque d\'identité gravée (Obligatoire)', prix: 25, cat: 'Courant' }, { desc: 'Emblème religieux / Civil', prix: 40, cat: 'Optionnel' }, { type: 'section', text: '4. CÉRÉMONIE & CONVOI' }, { desc: 'Corbillard de cérémonie avec chauffeur', prix: 400, cat: 'Courant' }, { desc: 'Porteurs (Equipe de 4 personnes)', prix: 600, cat: 'Courant' }, { desc: 'Maître de cérémonie (Organisation & Gestion)', prix: 200, cat: 'Optionnel' }, { desc: 'Frais de culte', prix: 220, cat: 'Optionnel' }, { desc: 'Registre de condoléances', prix: 35, cat: 'Optionnel' }, { type: 'section', text: '5. CIMETIÈRE' }, { desc: 'Creusement et comblement de fosse / Ouverture de caveau', prix: 650, cat: 'Courant' }, { desc: 'Redevance inhumation (Taxe Mairie)', prix: 50, cat: 'Avance' }, { desc: 'Achat de concession', prix: 50, cat: 'Avance' } ], "Cremation": [ { type: 'section', text: 'PREPARATION/ORGANISATION DES OBSEQUES' }, { desc: 'Démarches administratives', prix: 250, cat: 'Courant' }, { desc: 'Vacation de Police (Pose de scellés)', prix: 25, cat: 'Avance' }, { type: 'section', text: 'PRÉPARATION DU DÉFUNT' }, { desc: 'Toilette et habillage défunt (e)', prix: 150, cat: 'Courant' }, { desc: 'Séjour en chambre funéraire (Forfait 3 jours)', prix: 350, cat: 'Optionnel' }, { type: 'section', text: 'TRANSPORT AVANT MISE EN BIERE' }, { desc: 'Transport avant mise en bière', prix: 250, cat: 'Courant' }, { type: 'section', text: '3. CERCUEIL & ACCESSOIRES' }, { desc: 'Cercueil Azur inhumation (avec quatre poignées en métal cache vis plastique, et cuvette biodégradable)', prix: 850, cat: 'Courant' }, { desc: 'Capiton (Tissu intérieur)', prix: 80, cat: 'Courant' }, { desc: 'Plaque d\'identité gravée (Obligatoire)', prix: 25, cat: 'Courant' }, { desc: 'Emblème religieux / Civil', prix: 40, cat: 'Optionnel' }, { type: 'section', text: '4. CÉRÉMONIE & CONVOI' }, { desc: 'Corbillard de cérémonie avec chauffeur', prix: 400, cat: 'Courant' }, { desc: 'Porteurs (Equipe de 4 personnes)', prix: 600, cat: 'Courant' }, { desc: 'Maître de cérémonie (Organisation & Gestion)', prix: 200, cat: 'Optionnel' }, { desc: 'Frais de culte', prix: 220, cat: 'Optionnel' }, { desc: 'Registre de condoléances', prix: 35, cat: 'Optionnel' }, { type: 'section', text: '4. CRÉMATORIUM' }, { desc: 'Frais de Crémation ', prix: 750, cat: 'Avance' }, { desc: 'Urne', prix: 60, cat: 'Courant' } ], "Rapatriement": [ { type: 'section', text: 'PREPARATION/ORGANISATION DES OBSEQUES' }, { desc: 'Démarches administratives', prix: 250, cat: 'Courant' }, { desc: 'Vacation de Police (Pose de scellés)', prix: 25, cat: 'Avance' }, { type: 'section', text: 'PRÉPARATION DU DÉFUNT' }, { desc: 'Toilette et habillage défunt (e)', prix: 150, cat: 'Courant' }, { desc: 'Séjour en chambre funéraire (Forfait 3 jours)', prix: 350, cat: 'Optionnel' }, { type: 'section', text: 'TRANSPORT AVANT MISE EN BIERE' }, { desc: 'Transport avant mise en bière', prix: 250, cat: 'Courant' }, { type: 'section', text: '3. CERCUEIL & ACCESSOIRES' }, { desc: 'Cercueil Azur Rapatriement (avec quatre poignées en métal cache vis plastique,Filtre épurateur (Norme IATA) et cuvette biodégradable)', prix: 850, cat: 'Courant' }, { desc: 'Capiton (Tissu intérieur)', prix: 80, cat: 'Courant' }, { desc: 'Plaque d\'identité gravée (Obligatoire)', prix: 25, cat: 'Courant' }, { desc: 'Emblème religieux / Civil', prix: 40, cat: 'Optionnel' }, { type: 'section', text: '4. CÉRÉMONIE & CONVOI' }, { desc: 'Corbillard de cérémonie avec chauffeur', prix: 400, cat: 'Courant' }, { desc: 'Porteurs (Equipe de 4 personnes)', prix: 600, cat: 'Courant' }, { desc: 'Maître de cérémonie (Organisation & Gestion)', prix: 200, cat: 'Optionnel' }, { desc: 'Frais de culte', prix: 220, cat: 'Optionnel' }, { desc: 'Registre de condoléances', prix: 35, cat: 'Optionnel' }, { type: 'section', text: '4. TRANSPORT' }, { desc: 'Transport vers Aéroport (France)', prix: 350, cat: 'Courant' }, { desc: 'Fret Aérien ', prix: 1800, cat: 'Avance' } ], "Transport": [ { type: 'section', text: '1. TRANSPORT DE CORPS' }, { desc: 'Véhicule Agréé avec Caisson', prix: 300, cat: 'Courant' }, { desc: 'Chauffeur / Porteur', prix: 150, cat: 'Courant' }, { desc: 'Housse mortuaire impérméable', prix: 45, cat: 'Courant' }, { desc: 'Frais kilométriques (Au-delà du forfait)', prix: 0, cat: 'Courant' } ], "Exhumation": [ { type: 'section', text: '1. TECHNIQUE' }, { desc: 'Démarches Mairie & Cimetière', prix: 150, cat: 'Courant' }, { desc: 'Ouverture de monument / Fosse', prix: 600, cat: 'Courant' }, { desc: 'Exhumation du corps', prix: 450, cat: 'Courant' }, { desc: 'Fourniture Reliquaire (Boîte à ossements)', prix: 120, cat: 'Courant' }, { desc: 'Réduction de corps', prix: 200, cat: 'Optionnel' }, { desc: 'Fermeture de sépulture', prix: 200, cat: 'Courant' }, { desc: 'Vacation de Police', prix: 25, cat: 'Avance' } ] };
-
-    window.loadTemplate = async function(type) { document.getElementById('modal-choix').classList.add('hidden'); window.nouveauDocument(); const num = await genererNumero('DEVIS'); document.getElementById('doc_numero').value = num; if (MODELES[type]) { document.getElementById('tbody_lignes').innerHTML = ""; MODELES[type].forEach(item => { if(item.type === 'section') window.ajouterSection(item.text); else window.ajouterLigne(item.desc, item.prix, item.cat); }); } window.calculTotal(); };
+    // --- AUTRES FONCTIONS ---
+    async function chargerSuggestionsClients() { try { const q = query(collection(db, "dossiers_admin"), orderBy("date_creation", "desc")); const snap = await getDocs(q); dossiersCache = []; const dlClients = document.getElementById('clients_suggestions'); const dlDefunts = document.getElementById('defunts_suggestions'); dlClients.innerHTML = ""; dlDefunts.innerHTML = ""; snap.forEach(doc => { const data = doc.data(); dossiersCache.push(data); if(data.mandant && data.mandant.nom) { const opt = document.createElement('option'); opt.value = data.mandant.nom; dlClients.appendChild(opt); } if(data.defunt && data.defunt.nom) { const opt = document.createElement('option'); opt.value = data.defunt.nom; dlDefunts.appendChild(opt); } }); } catch(e) {} }
+    chargerSuggestionsClients();
+    window.remplirInfosClient = function() { const nomSaisi = document.getElementById('client_nom').value; const dossierTrouve = dossiersCache.find(d => d.mandant && d.mandant.nom === nomSaisi); if(dossierTrouve) { document.getElementById('client_civility').value = dossierTrouve.mandant.civility || "M."; document.getElementById('client_adresse').value = dossierTrouve.mandant.adresse || ""; if(!document.getElementById('defunt_nom').value && dossierTrouve.defunt) { document.getElementById('defunt_nom').value = dossierTrouve.defunt.nom || ""; document.getElementById('defunt_civility').value = dossierTrouve.defunt.civility || "M."; } } };
+    document.getElementById('search-input').addEventListener('keyup', (e) => { const term = e.target.value.toLowerCase(); document.querySelectorAll('#list-body tr').forEach(row => { row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none'; }); });
+    window.ajouterPaiement = function() { const date = document.getElementById('pay_date').value; const mode = document.getElementById('pay_mode').value; const montant = parseFloat(document.getElementById('pay_amount').value); if(!date || isNaN(montant) || montant <= 0) return alert("Montant ou date invalide."); paiements.push({ date, mode, montant }); document.getElementById('pay_amount').value = ""; window.renderPaiements(); window.calculTotal(); };
+    window.supprimerPaiement = function(index) { if(confirm("Supprimer ce paiement ?")) { paiements.splice(index, 1); window.renderPaiements(); window.calculTotal(); } };
+    window.renderPaiements = function() { const div = document.getElementById('liste_paiements'); if(paiements.length === 0) { div.innerHTML = '<small style="color:#888;">Aucun paiement.</small>'; return; } div.innerHTML = ''; paiements.forEach((p, index) => { div.innerHTML += `<div class="payment-item"><span>${new Date(p.date).toLocaleDateString()} - ${p.mode}</span><strong>${p.montant.toFixed(2)} € <i class="fas fa-trash" style="color:red; cursor:pointer; margin-left:10px;" onclick="window.supprimerPaiement(${index})"></i></strong></div>`; }); };
+    async function genererNumero(type) { const q = query(collection(db, "factures_v2")); const snap = await getDocs(q); const count = snap.size + 1; const year = new Date().getFullYear(); const prefix = (type === 'DEVIS') ? 'D' : 'F'; return `${prefix}-${year}-${String(count).padStart(3, '0')}`; }
     window.transformerEnFacture = async function() { if(confirm("Créer une FACTURE à partir de ce devis ?")) { document.getElementById('doc_type').value = "FACTURE"; document.getElementById('doc_date').valueAsDate = new Date(); const num = await genererNumero('FACTURE'); document.getElementById('doc_numero').value = num; document.getElementById('current_doc_id').value = ""; document.getElementById('btn-save').click(); } };
     document.getElementById('doc_type').addEventListener('change', () => { const t = document.getElementById('doc_type').value; document.getElementById('btn-transform').classList.toggle('hidden', t !== 'DEVIS'); });
     window.showDashboard = function() { document.getElementById('view-editor').classList.add('hidden'); document.getElementById('view-dashboard').classList.remove('hidden'); window.chargerListeFactures(); };
