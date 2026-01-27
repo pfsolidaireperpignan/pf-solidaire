@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PF Solidaire -  (eXPORT EXCEL)</title>
+    <title>TEST PF Solidaire ()</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -328,16 +328,15 @@
     }
     setTimeout(chargerLogoBase64, 1000);
 
-    // --- MOTEUR PDF UNIQUE (IMPRESSION & VISUALISATION) ---
+    // --- MOTEUR PDF UNIQUE ---
     window.generatePDFFromData = function(data, saveMode = false) {
         if(!logoBase64) chargerLogoBase64();
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        // --- 1. EN-TÊTE (VOS COULEURS) ---
+        // 1. EN-TÊTE
         if (logoBase64) { try { doc.addImage(logoBase64,'PNG', 15, 10, 25, 25); } catch(e){} }
         
-        // Vert Foncé PF Solidaire
         const greenColor = [34, 155, 76]; 
         
         doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...greenColor);
@@ -346,14 +345,14 @@
         doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(80);
         doc.text("32 boulevard Léon Jean Grégory Thuir", 15, 50); doc.text("Tél : 07.55.18.27.77", 15, 54);
 
-        // Cadre Client (Gris clair)
+        // Cadre Client
         doc.setFillColor(245, 245, 245); doc.roundedRect(110, 10, 85, 30, 2, 2, 'F');
         doc.setFontSize(10); doc.setTextColor(0); doc.setFont("helvetica","bold");
         doc.text(`${data.client.civility || ''} ${data.client.nom || ''}`, 115, 18);
         doc.setFont("helvetica","normal"); doc.setFontSize(9);
         doc.text(doc.splitTextToSize(data.client.adresse || "", 80), 115, 24);
 
-        // Titres Document
+        // Titres
         let y = 65; doc.setFontSize(12); doc.setFont("helvetica","bold"); doc.setTextColor(...greenColor);
         const typeDoc = data.info.type || "DOCUMENT";
         const numDoc = data.info.numero || "";
@@ -365,14 +364,13 @@
         
         doc.setFont("helvetica","bold"); 
         doc.text(`DÉFUNT : ${data.defunt.civility || ''} ${data.defunt.nom || ''}`, 130, y); 
-        y += 10;
+        y += 8;
 
-        // --- 2. TABLEAU (VOS COULEURS EXACTES) ---
+        // 2. TABLEAU COMPACT
         const rows = [];
         if(data.lignes) {
             data.lignes.forEach(l => {
                 if(l.type === 'section') {
-                    // C'est ICI la couleur Beige/Orange de vos sections [255, 228, 196]
                     rows.push([{ content: (l.text || "").toUpperCase(), colSpan: 4, styles: { fillColor: [255, 228, 196], textColor: [0,0,0], fontStyle: 'bold', fontSize: 8 } }]);
                 } else {
                     const prix = parseFloat(l.prix).toFixed(2) + ' €';
@@ -387,45 +385,58 @@
             body: rows, 
             theme: 'grid',
             headStyles: { fillColor: [230, 230, 230], textColor: [0,0,0], fontSize: 8, halign: 'center', lineColor: [200, 200, 200], lineWidth: 0.1 },
-            styles: { fontSize: 8, cellPadding: 3 }, 
+            styles: { fontSize: 8, cellPadding: 1.5 }, 
             columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } }
         });
         
         const finalY = doc.lastAutoTable.finalY + 5;
         let curY = finalY;
 
-        // --- 3. CALCULS ---
+        // 3. CALCULS
         const total = parseFloat(data.info.total) || 0;
         const dejaRegle = data.paiements ? data.paiements.reduce((sum, p) => sum + p.montant, 0) : 0;
         const reste = total - dejaRegle;
 
-        // On affiche les totaux TOUT DE SUITE à droite pour gagner de la place
+        // Affichage Totaux
         doc.setFontSize(9); doc.setTextColor(0); doc.setFont("helvetica", "bold");
         doc.text("Total TTC :", 140, curY + 5); 
         doc.text(total.toFixed(2) + " €", 195, curY + 5, {align:'right'}); 
         
-        // Reste à Payer (Cadre Vert) - Juste sous le total
-        let yReste = curY + 12;
+        // --- C'EST ICI LA CORRECTION POUR AFFICHER LES PAIEMENTS ---
+        let yReste = curY + 12; // Position de base du Reste à Payer
+        
+        if(data.paiements && data.paiements.length > 0) {
+            let yPay = curY + 10;
+            doc.setFontSize(8); doc.setTextColor(100); doc.setFont("helvetica", "normal");
+            
+            data.paiements.forEach(p => {
+                const dateP = p.date ? new Date(p.date).toLocaleDateString() : "";
+                // Affiche la ligne : "Reçu le ... (Mode) : - XX €"
+                doc.text(`Reçu le ${dateP} (${p.mode}) :`, 140, yPay);
+                doc.text(`- ${parseFloat(p.montant).toFixed(2)} €`, 195, yPay, {align:'right'});
+                yPay += 4; // On descend pour la ligne suivante
+            });
+            
+            // On décale le cadre "Reste à payer" plus bas selon le nombre de paiements
+            yReste = yPay + 5;
+        }
+
+        // Reste à Payer (Cadre Vert)
         doc.setDrawColor(...greenColor); doc.setLineWidth(0.5); doc.rect(138, yReste - 5, 58, 10);
-        doc.setTextColor(...greenColor); doc.setFontSize(10);
+        doc.setTextColor(...greenColor); doc.setFontSize(10); doc.setFont("helvetica", "bold");
         doc.text("RESTE À PAYER :", 140, yReste + 2); 
         doc.text(reste.toFixed(2) + " €", 193, yReste + 2, {align:'right'});
 
-        // --- 4. BLOCS SPÉCIFIQUES (RIB ou SIGNATURE) ---
-        
+        // --- 4. BLOCS SPÉCIFIQUES ---
         if (typeDoc === 'FACTURE') {
-            // === FACTURE : RIB & MENTION ===
             if (curY + 45 > 280) { doc.addPage(); curY = 20; yReste = 20; }
             
-            // Cadre Gris RIB (Aligné à gauche)
             doc.setDrawColor(200); doc.setFillColor(250, 250, 250);
             doc.rect(15, curY, 115, 45, 'FD');
 
-            // MENTION (Demandée)
             doc.setFontSize(9); doc.setTextColor(...greenColor); doc.setFont("helvetica", "bold");
             doc.text(`Somme de ${reste.toFixed(2)} € à payer dès réception de la facture.`, 18, curY + 6);
 
-            // RIB TEXTE (Banque Populaire)
             doc.setTextColor(0); doc.setFontSize(8); doc.setFont("helvetica", "bold");
             doc.text("Coordonnées Bancaires :", 18, curY + 14);
             
@@ -435,111 +446,74 @@
             doc.text("IBAN : FR76 1660 7000 0738 2217 4454 393", 18, curY + 29);
             doc.text("BIC : CCBPFRPPPPG", 18, curY + 34);
             
-            curY += 50; // On descend après le bloc RIB
+            curY += 50;
 
         } else {
-            // === DEVIS : CADRE SIGNATURE ===
-             // Vérification intelligente : est-ce que ça tient sur la page ?
              if (curY + 45 > 285) { doc.addPage(); curY = 20; }
              
-             // Cadre de signature
-             doc.setDrawColor(0); doc.setLineWidth(0.3); 
-             // On dessine le cadre SOUS les totaux pour le devis
              let ySig = Math.max(curY, yReste + 10) + 5; 
-             
+             doc.setDrawColor(0); doc.setLineWidth(0.3); 
              doc.rect(15, ySig, 180, 35);
              doc.setFontSize(9); doc.setTextColor(0); doc.setFont("helvetica", "normal");
              
              doc.text("Je soussigné(e),", 20, ySig + 8); 
              doc.text("accepte le présent devis prévisionnel.", 130, ySig + 8);
-             
              doc.text("Le ........................................", 20, ySig + 16); 
              doc.text("à ........................................", 80, ySig + 16);
-             
-             doc.setFontSize(8);
              doc.text("Signature précédée de la mention \"Lu et approuvé, bon pour acceptation\"", 20, ySig + 28);
              
              curY = ySig + 40;
         }
 
-        // 5. MENTIONS LÉGALES FINALES
-        if (typeDoc === 'DEVIS') {
-             // MENTIONS SPECIFIQUES DEVIS
-             doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(0);
-             const mentionDevis = "Conformément à l'article 5 de l'arrêté du 11 janvier 1999, lorsque le devis est accepté, un bon de commande est alors établi et signé par le client.";
-             doc.text(doc.splitTextToSize(mentionDevis, 180), 15, curY);
-             
-             // AJOUT DEMANDÉ : Mention NA aussi sur le devis
-             curY += 8;
-             doc.setFont("helvetica", "bold"); doc.setTextColor(220, 38, 38);
-             doc.text("NB : - (NA) TVA non applicable, art 293 B du CGI", 15, curY);
+        // 5. MENTIONS
+        let footerY = Math.max(curY, yReste + 15);
+        if (typeDoc === 'FACTURE') footerY = Math.max(curY, yReste + 15);
 
-        } else {
-            // MENTIONS FACTURE
-            doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(220, 38, 38); // Rouge pour NB
-            doc.text("NB :", 15, curY); doc.setTextColor(0); doc.setFont("helvetica", "normal");
-            doc.text("- (NA) TVA non applicable, art 293 B du CGI", 25, curY);
-            doc.text("- (*) Prestations et fournitures obligatoires", 25, curY + 4);
+        doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(220, 38, 38);
+        doc.text("NB :", 15, footerY); doc.setTextColor(0); doc.setFont("helvetica", "normal");
+        doc.text("- (NA) TVA non applicable, art 293 B du CGI", 25, footerY);
+        doc.text("- (*) Prestations et fournitures obligatoires", 25, footerY + 4);
+        
+        if (typeDoc === 'DEVIS') {
+             footerY += 9;
+             doc.setFont("helvetica", "bold"); doc.setFontSize(7);
+             const mentionDevis = "Conformément à l'article 5 de l'arrêté du 11 janvier 1999, lorsque le devis est accepté, un bon de commande est alors établi et signé par le client.";
+             doc.text(doc.splitTextToSize(mentionDevis, 180), 15, footerY);
         }
         
-        if (saveMode) {
-            doc.save(`${typeDoc}_${numDoc}.pdf`);
-        } else {
-            window.open(doc.output('bloburl'), '_blank');
-        }
+        if (saveMode) { doc.save(`${typeDoc}_${numDoc}.pdf`); } else { window.open(doc.output('bloburl'), '_blank'); }
     };
 
-    // --- BOUTON PDF (ÉDITEUR) ---
+    // --- BOUTONS ---
     document.getElementById('btn-pdf').addEventListener('click', () => {
         const lignes = [];
         document.querySelectorAll('#tbody_lignes tr').forEach(tr => {
             if(tr.classList.contains('row-section')) {
                 lignes.push({ type: 'section', text: tr.querySelector('input').value });
             } else {
-                lignes.push({ 
-                    type: 'item', 
-                    desc: tr.querySelector('.val-desc').value, 
-                    cat: tr.querySelector('.val-type').value, 
-                    prix: parseFloat(tr.querySelector('.val-prix').value) || 0 
-                });
+                lignes.push({ type: 'item', desc: tr.querySelector('.val-desc').value, cat: tr.querySelector('.val-type').value, prix: parseFloat(tr.querySelector('.val-prix').value) || 0 });
             }
         });
-
         const dataEcran = {
-            client: { 
-                civility: document.getElementById('client_civility').value, 
-                nom: document.getElementById('client_nom').value, 
-                adresse: document.getElementById('client_adresse').value 
-            },
-            defunt: { 
-                civility: document.getElementById('defunt_civility').value, 
-                nom: document.getElementById('defunt_nom').value 
-            },
-            info: { 
-                type: document.getElementById('doc_type').value, 
-                numero: document.getElementById('doc_numero').value, 
-                date: document.getElementById('doc_date').value, 
-                total: parseFloat(document.getElementById('total_display').innerText) 
-            },
+            client: { civility: document.getElementById('client_civility').value, nom: document.getElementById('client_nom').value, adresse: document.getElementById('client_adresse').value },
+            defunt: { civility: document.getElementById('defunt_civility').value, nom: document.getElementById('defunt_nom').value },
+            info: { type: document.getElementById('doc_type').value, numero: document.getElementById('doc_numero').value, date: document.getElementById('doc_date').value, total: parseFloat(document.getElementById('total_display').innerText) },
             lignes: lignes,
             paiements: paiements
         };
-        
-        window.generatePDFFromData(dataEcran, true); // true = Télécharger
+        window.generatePDFFromData(dataEcran, true);
     });
 
-    // --- FONCTION VISUALISER (OEUIL) ---
     window.visualiserPDF = async function(id) {
         try {
             const docRef = doc(db, "factures_v2", id);
             const docSnap = await getDoc(docRef);
             if(!docSnap.exists()) return alert("Document introuvable");
-            const data = docSnap.data();
-            window.generatePDFFromData(data, false); // false = Ouvrir onglet
-        } catch(e) { console.error(e); alert("Erreur visualisation : " + e.message); }
+            window.generatePDFFromData(docSnap.data(), false);
+        } catch(e) { console.error(e); alert("Erreur : " + e.message); }
     };
 
-// --- 1. FONCTION UTILITAIRE : TÉLÉCHARGER LE CSV ---
+    // --- EXPORT EXCEL ---
     window.downloadCSV = function(content, fileName) {
         const encodedUri = encodeURI("data:text/csv;charset=utf-8,\uFEFF" + content);
         const link = document.createElement("a");
@@ -550,74 +524,31 @@
         document.body.removeChild(link);
     };
 
-    // --- 2. FONCTION PRINCIPALE : EXPORT INTELLIGENT ---
     window.exporterExcelSmart = async function() {
         const isAchats = !document.getElementById('tab-achats').classList.contains('hidden');
-
         if (isAchats) {
-            // === EXPORT DES ACHATS ===
             if(!confirm("Exporter le Journal des ACHATS (Excel) ?")) return;
-            
-            if (!cacheDepenses || cacheDepenses.length === 0) {
-                return alert("Aucune donnée à exporter. Veuillez charger le tableau.");
-            }
-
+            if (!cacheDepenses || cacheDepenses.length === 0) return alert("Aucune donnée.");
             let csv = "DATE;REFERENCE;FOURNISSEUR;CATEGORIE;DETAILS;PAIEMENT;STATUT;MONTANT TTC\n";
-            
             cacheDepenses.forEach(d => {
-                const date = d.date ? new Date(d.date).toLocaleDateString() : "-";
-                const ref = (d.reference || "").replace(/;/g, " "); 
-                const fourn = (d.fournisseur || "").replace(/;/g, " ");
-                const cat = (d.categorie || "").replace(/;/g, " ");
-                const det = (d.details || "").replace(/;/g, " ");
-                const pay = d.mode || "";
-                const stat = d.statut || "";
-                const mt = (d.montant || 0).toFixed(2).replace('.', ','); 
-                
-                csv += `${date};${ref};${fourn};${cat};${det};${pay};${stat};${mt}\n`;
+                csv += `${d.date};${(d.reference||"").replace(/;/g," ")};${d.fournisseur};${d.categorie};${(d.details||"").replace(/;/g," ")};${d.mode};${d.statut};${(d.montant||0).toFixed(2).replace('.',',')}\n`;
             });
-            
             window.downloadCSV(csv, "Journal_Achats_PF.csv");
-
         } else {
-            // === EXPORT DES FACTURES (VENTES) ===
-            if(!confirm("Exporter le Journal des VENTES (Factures Clients) ?")) return;
-
-            try {
-                const q = query(collection(db, "factures_v2"), orderBy("date_creation", "desc"));
-                const snap = await getDocs(q);
-                
-                if (snap.empty) return alert("Aucun document trouvé.");
-
-                let csv = "NUMERO;DATE;TYPE;CLIENT;DEFUNT;TOTAL TTC;RESTE A PAYER\n";
-                
-                snap.forEach(docSnap => {
-                    const d = docSnap.data();
-                    const num = d.info?.numero || "";
-                    const date = d.info?.date ? new Date(d.info.date).toLocaleDateString() : "";
-                    const type = d.info?.type || "DEVIS";
-                    const cli = (d.client?.nom || "").replace(/;/g, " ");
-                    const def = (d.defunt?.nom || "").replace(/;/g, " ");
-                    
-                    const total = (d.info?.total || 0);
-                    const dejaPaye = d.paiements ? d.paiements.reduce((acc, p) => acc + p.montant, 0) : 0;
-                    const reste = total - dejaPaye;
-
-                    const totalStr = total.toFixed(2).replace('.', ',');
-                    const resteStr = reste.toFixed(2).replace('.', ',');
-
-                    csv += `${num};${date};${type};${cli};${def};${totalStr};${resteStr}\n`;
-                });
-
-                window.downloadCSV(csv, "Journal_Ventes_PF.csv");
-
-            } catch(e) {
-                console.error(e);
-                alert("Erreur lors de l'export : " + e.message);
-            }
+            if(!confirm("Exporter le Journal des VENTES ?")) return;
+            const q = query(collection(db, "factures_v2"), orderBy("date_creation", "desc"));
+            const snap = await getDocs(q);
+            let csv = "NUMERO;DATE;TYPE;CLIENT;DEFUNT;TOTAL TTC;RESTE A PAYER\n";
+            snap.forEach(docSnap => {
+                const d = docSnap.data();
+                const paye = d.paiements ? d.paiements.reduce((sum, p) => sum + p.montant, 0) : 0;
+                csv += `${d.info.numero};${d.info.date};${d.info.type};${d.client.nom};${d.defunt.nom};${parseFloat(d.info.total).toFixed(2).replace('.',',')};${(d.info.total - paye).toFixed(2).replace('.',',')}\n`;
+            });
+            window.downloadCSV(csv, "Journal_Ventes_PF.csv");
         }
     };
-    // --- RESTE DU CODE (FONCTIONNEL & INCHANGÉ) ---
+
+    // --- FONCTIONS STANDARDS ---
     function updateFinancialDashboard() {
         document.getElementById('stat-ca').innerText = global_CA.toFixed(2) + " €";
         document.getElementById('stat-depenses').innerText = global_Depenses.toFixed(2) + " €";
