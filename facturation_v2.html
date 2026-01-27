@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PF Solidaire - Facturation V19 (Visualisation)</title>
+    <title>PF Solidaire - Facturation V24 (Réparée + RIB)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -35,10 +35,9 @@
         /* BOUTONS */
         .btn { padding: 8px 15px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; font-size: 0.9rem; display:inline-flex; align-items:center; gap:8px; text-decoration:none; transition: all 0.2s; }
         .btn:hover { opacity: 0.9; transform: translateY(-1px); }
-        .btn-green { background: #22c55e; color: white; } 
-        .btn-red { background: #fee2e2; color: #ef4444; } .btn-grey { background: #e2e8f0; color: #475569; } 
-        .btn-purple { background: #8b5cf6; color: white; } .btn-orange { background: #f97316; color: white; }
-        .btn-blue { background: #3b82f6; color: white; }
+        .btn-green { background: #22c55e; color: white; } .btn-red { background: #fee2e2; color: #ef4444; } 
+        .btn-grey { background: #e2e8f0; color: #475569; } .btn-purple { background: #8b5cf6; color: white; } 
+        .btn-blue { background: #3b82f6; color: white; } .btn-orange { background: #f97316; color: white; }
         
         .tab-btn { padding: 10px 20px; background: #e2e8f0; border: none; border-radius: 20px; font-weight: bold; color: #64748b; cursor: pointer; transition: all 0.2s; }
         .tab-btn.active { background: #3b82f6; color: white; box-shadow: 0 2px 5px rgba(59, 130, 246, 0.3); }
@@ -50,7 +49,7 @@
         .stat-value { font-size: 1.8rem; font-weight: 800; }
         .card-ca { color: #15803d; border-bottom: 4px solid #22c55e; } .card-depense { color: #b91c1c; border-bottom: 4px solid #ef4444; } .card-result { color: #1e40af; border-bottom: 4px solid #3b82f6; background: linear-gradient(to bottom right, #eff6ff, white); }
 
-        /* TABLES & LIENS */
+        /* TABLES */
         .compta-table { width: 100%; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-collapse: collapse; }
         .compta-table th { background: #f8fafc; padding: 15px; text-align: left; color: #64748b; font-size: 0.85rem; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; cursor: pointer; }
         .compta-table td { padding: 15px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
@@ -65,11 +64,11 @@
         .badge-depense { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; } .badge-regle { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .badge-attente { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; cursor: pointer; } .badge-mode { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; font-weight: normal; }
 
-        /* FORMS & EDITOR */
         .expense-form { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border-left: 5px solid #ef4444; }
         .form-group { flex: 1; min-width: 140px; }
         .form-group label { display: block; font-size: 0.8rem; font-weight: bold; color: #64748b; margin-bottom: 5px; }
         .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 0.9rem; }
+        
         .editor-container { max-width: 1200px; margin: 0 auto; } 
         .top-bar-editor { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-top: 4px solid #f59e0b; flex-wrap: wrap; gap: 10px; }
         .grid-identity { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; } 
@@ -318,25 +317,30 @@
     let global_Depenses = 0;
     const currentYear = new Date().getFullYear();
     let currentSort = { col: 'date', order: 'desc' }; 
-// --- NOUVEAU MOTEUR PDF (V23 : Compact + RIB) ---
+
+    function chargerLogoBase64() { const img = document.getElementById('logo-source'); if (img && img.naturalWidth > 0) { const c = document.createElement("canvas"); c.width=img.naturalWidth; c.height=img.naturalHeight; c.getContext("2d").drawImage(img,0,0); try{logoBase64=c.toDataURL("image/png");}catch(e){} } }
+    setTimeout(chargerLogoBase64, 1000);
+    
+    // --- FONCTION PARTAGÉE : GÉNÉRATION DU CONTENU PDF ---
+    // Cette fonction génère le PDF pour l'enregistrement ET la visualisation
     function genererContenuPDF(pdfDoc, data) {
-        // 1. Logo et En-tête (Remontés pour gagner de la place)
-        if (logoBase64) { try { pdfDoc.addImage(logoBase64,'PNG', 15, 10, 20, 20); } catch(e){} }
+        if (logoBase64) { try { pdfDoc.addImage(logoBase64,'PNG', 15, 10, 20, 20); } catch(e){} } 
         
+        // En-tête compacté
         pdfDoc.setFont("helvetica","bold"); pdfDoc.setFontSize(11); pdfDoc.setTextColor(34, 155, 76);
         pdfDoc.text("POMPES FUNEBRES SOLIDAIRE PERPIGNAN", 40, 15);
         pdfDoc.setFontSize(8); pdfDoc.setFont("helvetica","normal"); pdfDoc.setTextColor(80);
         pdfDoc.text("32 boulevard Léon Jean Grégory Thuir - Tél : 07.55.18.27.77", 40, 20);
         
-        // 2. Cadre Client (Plus compact)
+        // Cadre Client
         pdfDoc.setFillColor(245, 245, 245); pdfDoc.roundedRect(110, 10, 85, 25, 2, 2, 'F');
         pdfDoc.setFontSize(10); pdfDoc.setTextColor(0); pdfDoc.setFont("helvetica","bold");
         pdfDoc.text(`${data.client.civility} ${data.client.nom}`, 115, 16);
         pdfDoc.setFont("helvetica","normal"); pdfDoc.setFontSize(9);
         pdfDoc.text(pdfDoc.splitTextToSize(data.client.adresse || "", 80), 115, 22);
         
-        // 3. Infos Document
-        let y = 45; // Début du contenu remonté
+        // Info Document
+        let y = 45;
         pdfDoc.setFontSize(11); pdfDoc.setFont("helvetica","bold"); pdfDoc.setTextColor(34, 155, 76);
         const typeDoc = data.info.type; const numDoc = data.info.numero;
         pdfDoc.text(`${typeDoc} N° ${numDoc}`, 15, y);
@@ -349,7 +353,7 @@
         pdfDoc.text(`DÉFUNT : ${data.defunt.civility} ${data.defunt.nom}`, 130, y); 
         y += 6;
 
-        // 4. Tableau des articles
+        // Tableau
         const rows = [];
         if(data.lignes) {
             data.lignes.forEach(l => {
@@ -368,22 +372,22 @@
             body: rows,
             theme: 'grid',
             headStyles: { fillColor: [230, 230, 230], textColor: [0,0,0], fontSize: 8, halign: 'center' },
-            styles: { fontSize: 8, cellPadding: 2 }, // Cellules compactes
+            styles: { fontSize: 8, cellPadding: 2 },
             columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } }
         });
         
-        // 5. Gestion Pied de Page (RIB + Totaux sur la même ligne)
+        // Gestion fin de page pour Totaux / RIB
         let finalY = pdfDoc.lastAutoTable.finalY + 5;
-        if (finalY > 230) { pdfDoc.addPage(); finalY = 20; }
+        if (finalY > 230) { pdfDoc.addPage(); finalY = 20; } 
 
         // --- BLOC RIB (Gauche) ---
         pdfDoc.setDrawColor(200); pdfDoc.setFillColor(250);
-        pdfDoc.roundedRect(15, finalY, 95, 22, 1, 1, 'FD');
+        pdfDoc.roundedRect(15, finalY, 90, 25, 1, 1, 'FD');
         pdfDoc.setFontSize(8); pdfDoc.setTextColor(100);
         pdfDoc.text("COORDONNÉES BANCAIRES (RIB) :", 18, finalY + 5);
         pdfDoc.setFontSize(9); pdfDoc.setTextColor(0); pdfDoc.setFont("helvetica", "bold");
         pdfDoc.text("FR76 1660 7000 0738 2217 4454 393", 18, finalY + 12);
-        
+
         // --- BLOC TOTAUX (Droite) ---
         const total = parseFloat(data.info.total);
         const paye = data.paiements ? data.paiements.reduce((sum, p) => sum + p.montant, 0) : 0;
@@ -402,32 +406,89 @@
             curY+=2;
         }
         
-        // Cadre Reste à Payer
         pdfDoc.setDrawColor(34, 155, 76); pdfDoc.setLineWidth(0.5); pdfDoc.rect(125, curY-4, 70, 10);
         pdfDoc.setFontSize(11); pdfDoc.setFont("helvetica", "bold"); pdfDoc.setTextColor(34, 155, 76);
         pdfDoc.text("RESTE À PAYER :", 128, curY+3); pdfDoc.text(reste.toFixed(2) + " €", 192, curY+3, {align:'right'});
 
-        // 6. Mentions Légales
-        let footerY = Math.max(finalY + 25, curY + 15);
-        if (footerY > 265) { pdfDoc.addPage(); footerY = 20; }
+        // Pied de page
+        let footerY = Math.max(finalY + 30, curY + 15);
+        if (footerY > 260) { pdfDoc.addPage(); footerY = 20; }
 
         pdfDoc.setFontSize(8); pdfDoc.setFont("helvetica", "bold"); pdfDoc.setTextColor(220, 38, 38); 
         pdfDoc.text("NB :", 15, footerY); pdfDoc.setTextColor(0); pdfDoc.setFont("helvetica", "normal"); 
         pdfDoc.text("- (NA) TVA non applicable, art 293 B du CGI - (*) Prestations obligatoires", 25, footerY);
         
-        // Signature si Devis
         if (typeDoc === 'DEVIS') {
             footerY += 5;
-            pdfDoc.setDrawColor(0); pdfDoc.setLineWidth(0.2); pdfDoc.rect(15, footerY, 180, 20);
-            pdfDoc.text("Bon pour accord, le .........................", 20, footerY + 6);
-            pdfDoc.text("Signature :", 120, footerY + 6);
+            pdfDoc.setDrawColor(0); pdfDoc.setLineWidth(0.2); pdfDoc.rect(15, footerY, 180, 25);
+            pdfDoc.text("Bon pour accord, le ......................... à .........................", 20, footerY + 6);
+            pdfDoc.text("Signature (précédée de 'Lu et approuvé') :", 20, footerY + 12);
             pdfDoc.setFontSize(7);
-            pdfDoc.text("Validité : 3 mois.", 150, footerY + 18, {align:"right"});
+            pdfDoc.text("Validité du devis : 3 mois.", 150, footerY + 22, {align:"right"});
         }
     }
-    function chargerLogoBase64() { const img = document.getElementById('logo-source'); if (img && img.naturalWidth > 0) { const c = document.createElement("canvas"); c.width=img.naturalWidth; c.height=img.naturalHeight; c.getContext("2d").drawImage(img,0,0); try{logoBase64=c.toDataURL("image/png");}catch(e){} } }
-    setTimeout(chargerLogoBase64, 1000);
-    
+
+    // --- VISUALISATION PDF (OEIL) ---
+    window.visualiserPDF = async function(id) {
+        try {
+            const docRef = doc(db, "factures_v2", id);
+            const docSnap = await getDoc(docRef);
+            if(!docSnap.exists()) return alert("Document introuvable");
+            
+            // ON UTILISE 'pdfDoc' POUR ÉVITER LE CONFLIT
+            const pdfDoc = new window.jspdf.jsPDF(); 
+            genererContenuPDF(pdfDoc, docSnap.data());
+            window.open(pdfDoc.output('bloburl'), '_blank');
+        } catch(e) { alert("Erreur : " + e.message); }
+    };
+
+    // --- ENREGISTREMENT ---
+    document.getElementById('btn-save').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-save'); const id = document.getElementById('current_doc_id').value; 
+        btn.innerHTML = '...';
+        try {
+            // Récupération des données du formulaire
+            const lignes = []; 
+            document.querySelectorAll('#tbody_lignes tr').forEach(tr => { 
+                if(tr.classList.contains('row-section')) lignes.push({ type: 'section', text: tr.querySelector('input').value }); 
+                else lignes.push({ type: 'item', desc: tr.querySelector('.val-desc').value, cat: tr.querySelector('.val-type').value, prix: parseFloat(tr.querySelector('.val-prix').value) || 0 }); 
+            }); 
+            
+            const docData = { 
+                client: { civility: document.getElementById('client_civility').value, nom: document.getElementById('client_nom').value, adresse: document.getElementById('client_adresse').value }, 
+                defunt: { civility: document.getElementById('defunt_civility').value, nom: document.getElementById('defunt_nom').value }, 
+                info: { type: document.getElementById('doc_type').value, date: document.getElementById('doc_date').value, numero: document.getElementById('doc_numero').value, total: parseFloat(document.getElementById('total_display').innerText) }, 
+                lignes: lignes, paiements: paiements, date_creation: new Date().toISOString() 
+            }; 
+            
+            if(id) await updateDoc(doc(db, "factures_v2", id), docData); 
+            else await addDoc(collection(db, "factures_v2"), docData);
+            
+            alert("✅ Enregistré !"); 
+            window.showDashboard();
+        } catch(e) { alert("Erreur : " + e.message); } 
+        btn.innerHTML = '<i class="fas fa-save"></i> ENREGISTRER'; 
+    });
+
+    // --- BOUTON PDF (DANS L'ÉDITEUR) ---
+    document.getElementById('btn-pdf').addEventListener('click', () => {
+        const lignes = []; 
+        document.querySelectorAll('#tbody_lignes tr').forEach(tr => { 
+            if(tr.classList.contains('row-section')) lignes.push({ type: 'section', text: tr.querySelector('input').value }); 
+            else lignes.push({ type: 'item', desc: tr.querySelector('.val-desc').value, cat: tr.querySelector('.val-type').value, prix: parseFloat(tr.querySelector('.val-prix').value) || 0 }); 
+        });
+        const tempData = { 
+            client: { civility: document.getElementById('client_civility').value, nom: document.getElementById('client_nom').value, adresse: document.getElementById('client_adresse').value }, 
+            defunt: { civility: document.getElementById('defunt_civility').value, nom: document.getElementById('defunt_nom').value }, 
+            info: { type: document.getElementById('doc_type').value, date: document.getElementById('doc_date').value, numero: document.getElementById('doc_numero').value, total: parseFloat(document.getElementById('total_display').innerText) }, 
+            lignes: lignes, paiements: paiements 
+        };
+        const pdfDoc = new window.jspdf.jsPDF(); // Renommé ici aussi
+        genererContenuPDF(pdfDoc, tempData);
+        pdfDoc.save(`${tempData.info.type}_${tempData.info.numero}.pdf`);
+    });
+
+    // --- DASHBOARD UPDATE ---
     function updateFinancialDashboard() {
         document.getElementById('stat-ca').innerText = global_CA.toFixed(2) + " €";
         document.getElementById('stat-depenses').innerText = global_Depenses.toFixed(2) + " €";
@@ -440,28 +501,7 @@
         document.getElementById('year-display-3').innerText = currentYear;
     }
 
-    // GESTION MENU
-    window.toggleSidebar = function() {
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.getElementById('mobile-overlay');
-        const btnIcon = document.querySelector('#mobile-menu-btn i');
-        
-        if (window.innerWidth < 768) {
-            sidebar.classList.toggle('mobile-open');
-            if (sidebar.classList.contains('mobile-open')) {
-                overlay.style.display = 'block';
-                btnIcon.classList.remove('fa-bars');
-                btnIcon.classList.add('fa-times');
-            } else {
-                overlay.style.display = 'none';
-                btnIcon.classList.remove('fa-times');
-                btnIcon.classList.add('fa-bars');
-            }
-        } else {
-            sidebar.classList.toggle('collapsed');
-        }
-    };
-
+    // --- NAVIGATION ---
     window.switchTab = function(tab) {
         document.getElementById('tab-factures').classList.add('hidden');
         document.getElementById('tab-achats').classList.add('hidden');
@@ -471,6 +511,21 @@
         else { document.getElementById('tab-achats').classList.remove('hidden'); document.getElementById('btn-tab-achats').classList.add('active-red'); window.chargerDepenses(); }
     };
 
+    window.toggleSidebar = function() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('mobile-overlay');
+        const btnIcon = document.querySelector('#mobile-menu-btn i');
+        if (window.innerWidth < 768) {
+            sidebar.classList.toggle('mobile-open');
+            if (sidebar.classList.contains('mobile-open')) {
+                overlay.style.display = 'block'; btnIcon.classList.remove('fa-bars'); btnIcon.classList.add('fa-times');
+            } else {
+                overlay.style.display = 'none'; btnIcon.classList.remove('fa-times'); btnIcon.classList.add('fa-bars');
+            }
+        } else { sidebar.classList.toggle('collapsed'); }
+    };
+
+    // --- EXPORT EXCEL ---
     window.exporterExcelSmart = async function() {
         const isAchats = document.getElementById('tab-achats').classList.contains('hidden') === false;
         if (isAchats) {
@@ -485,6 +540,7 @@
     };
     function downloadCSV(content, fileName) { const encodedUri = encodeURI("data:text/csv;charset=utf-8,\uFEFF" + content); const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", fileName); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
 
+    // --- GESTION DEPENSES ---
     window.gererDepense = async function() { const idToEdit = document.getElementById('dep_edit_id').value; const dateFac = document.getElementById('dep_date_fac').value; const ref = document.getElementById('dep_ref').value || "Non spécifié"; const fourn = document.getElementById('dep_fourn').value; const details = document.getElementById('dep_details').value || ""; const dateReg = document.getElementById('dep_date_reg').value; const cat = document.getElementById('dep_cat').value; const mode = document.getElementById('dep_mode').value; const statut = document.getElementById('dep_statut').value; const mont = parseFloat(document.getElementById('dep_montant').value); if(!dateFac || !fourn || isNaN(mont) || cat === "-- Choisir --") { return alert("Veuillez remplir : Date Facture, Fournisseur, Catégorie et Montant."); } const dataObj = { date: dateFac, date_reglement: dateReg, reference: ref, fournisseur: fourn, details: details, categorie: cat, mode: mode, statut: statut, montant: mont }; try { if(idToEdit) { await updateDoc(doc(db, "depenses", idToEdit), dataObj); alert("✅ Dépense modifiée !"); } else { dataObj.date_ajout = new Date().toISOString(); await addDoc(collection(db, "depenses"), dataObj); } window.resetFormDepense(); window.chargerDepenses(); } catch(e) { alert("Erreur : " + e.message); } };
     window.preparerModification = function(id) { const data = cacheDepenses.find(d => d.id === id); if(!data) return; document.getElementById('dep_edit_id').value = id; document.getElementById('dep_date_fac').value = data.date; document.getElementById('dep_ref').value = data.reference !== "Non spécifié" ? data.reference : ""; document.getElementById('dep_fourn').value = data.fournisseur; document.getElementById('dep_details').value = data.details || ""; document.getElementById('dep_date_reg').value = data.date_reglement || ""; document.getElementById('dep_cat').value = data.categorie; document.getElementById('dep_mode').value = data.mode; document.getElementById('dep_statut').value = data.statut; document.getElementById('dep_montant').value = data.montant; const btn = document.getElementById('btn-action-depense'); btn.innerHTML = '<i class="fas fa-edit"></i> MODIFIER'; btn.classList.remove('btn-red'); btn.classList.add('btn-blue'); document.getElementById('btn-cancel-depense').classList.remove('hidden'); document.getElementById('form-depense').scrollIntoView({behavior: "smooth"}); };
     window.resetFormDepense = function() { document.getElementById('dep_edit_id').value = ""; document.getElementById('dep_ref').value = ""; document.getElementById('dep_fourn').value = ""; document.getElementById('dep_details').value = ""; document.getElementById('dep_montant').value = ""; document.getElementById('dep_date_reg').value = ""; const btn = document.getElementById('btn-action-depense'); btn.innerHTML = '<i class="fas fa-plus"></i> ENREGISTRER'; btn.classList.add('btn-red'); btn.classList.remove('btn-blue'); document.getElementById('btn-cancel-depense').classList.add('hidden'); };
@@ -515,7 +571,7 @@
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td class="link-doc" onclick="window.chargerDocument('${docSnap.id}')" title="Modifier/Imprimer"><strong>${numDoc}</strong></td>
+                    <td class="link-doc" onclick="window.chargerDocument('${docSnap.id}')" title="Ouvrir Document"><strong>${numDoc}</strong></td>
                     <td>${dateDoc.toLocaleDateString()}</td>
                     <td><span class="badge ${typeClass}">${typeDoc}</span></td>
                     <td class="link-client" onclick="window.location.href='${linkClient}'" title="Voir Dossier Client"><strong>${nomClient}</strong></td>
@@ -530,104 +586,6 @@
             });
             window.chargerDepenses(); 
         } catch(e) { console.error(e); tbody.innerHTML = `<tr><td colspan="8" style="color:red;">Erreur : ${e.message}</td></tr>`; }
-    };
-
-    // --- VISUALISATION PDF SANS TÉLÉCHARGEMENT ---
-  // --- VISUALISATION PDF SANS TÉLÉCHARGEMENT (CORRIGÉE) ---
-    window.visualiserPDF = async function(id) {
-        try {
-            const docRef = doc(db, "factures_v2", id);
-            const docSnap = await getDoc(docRef);
-            if(!docSnap.exists()) return alert("Document introuvable");
-            
-            // On appelle le moteur V23
-            const pdfDoc = new window.jspdf.jsPDF(); 
-            genererContenuPDF(pdfDoc, docSnap.data());
-            window.open(pdfDoc.output('bloburl'), '_blank');
-        } catch(e) { alert("Erreur : " + e.message); }
-    };
-            
-            // Génération PDF
-            if(!logoBase64) chargerLogoBase64();
-            const { jsPDF } = window.jspdf;
-            
-            // ON RENOMME "doc" EN "pdf" POUR ÉVITER LE CONFLIT
-            const pdf = new jsPDF();
-            
-            if (logoBase64) { try { pdf.addImage(logoBase64,'PNG', 15, 10, 25, 25); } catch(e){} }
-            
-            pdf.setFont("helvetica","bold"); pdf.setFontSize(11); pdf.setTextColor(34, 155, 76);
-            pdf.text("POMPES FUNEBRES", 15, 40); pdf.text("SOLIDAIRE PERPIGNAN", 15, 45);
-            pdf.setFontSize(8); pdf.setFont("helvetica","normal"); pdf.setTextColor(80);
-            pdf.text("32 boulevard Léon Jean Grégory Thuir", 15, 50); pdf.text("Tél : 07.55.18.27.77", 15, 54);
-            
-            pdf.setFillColor(245, 245, 245); pdf.roundedRect(110, 10, 85, 30, 2, 2, 'F');
-            pdf.setFontSize(10); pdf.setTextColor(0); pdf.setFont("helvetica","bold");
-            pdf.text(`${data.client.civility} ${data.client.nom}`, 115, 18);
-            pdf.setFont("helvetica","normal"); pdf.setFontSize(9);
-            pdf.text(pdf.splitTextToSize(data.client.adresse || "", 80), 115, 24);
-            
-            let y = 65; pdf.setFontSize(11); pdf.setFont("helvetica","bold"); pdf.setTextColor(34, 155, 76);
-            const typeDoc = data.info.type; const numDoc = data.info.numero;
-            pdf.text(`${typeDoc} N° ${numDoc}`, 15, y);
-            pdf.setTextColor(0); pdf.setFont("helvetica","normal");
-            const dateStr = data.info.date ? data.info.date.split('-').reverse().join('/') : "";
-            pdf.text(`du ${dateStr}`, 80, y);
-            
-            pdf.setFont("helvetica","bold");
-            pdf.text(`DÉFUNT : ${data.defunt.civility} ${data.defunt.nom}`, 120, y); y += 8;
-            
-            const rows = [];
-            if(data.lignes) {
-                data.lignes.forEach(l => {
-                    if(l.type === 'section') {
-                        rows.push([{ content: l.text.toUpperCase(), colSpan: 4, styles: { fillColor: [255, 228, 196], textColor: [0,0,0], fontStyle: 'bold', fontSize: 8 } }]);
-                    } else {
-                        const prix = parseFloat(l.prix).toFixed(2) + ' €';
-                        rows.push([l.desc, 'NA', l.cat === 'Optionnel' ? '' : prix, l.cat === 'Optionnel' ? prix : '']);
-                    }
-                });
-            }
-            
-            pdf.autoTable({
-                startY: y,
-                head: [['DÉSIGNATION', 'TVA', 'PRESTATIONS\nCOURANTES', 'PRESTATIONS\nOPTIONNELLES']],
-                body: rows,
-                theme: 'grid',
-                headStyles: { fillColor: [230, 230, 230], textColor: [0,0,0], fontSize: 8, halign: 'center' },
-                styles: { fontSize: 8 },
-                columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } }
-            });
-            
-            const finalY = pdf.lastAutoTable.finalY + 8;
-            const total = parseFloat(data.info.total);
-            const paye = data.paiements ? data.paiements.reduce((sum, p) => sum + p.montant, 0) : 0;
-            const reste = total - paye;
-            
-            let curY = finalY;
-            pdf.setFontSize(9); pdf.setTextColor(0);
-            pdf.text("Total TTC :", 130, curY); pdf.text(total.toFixed(2) + " €", 190, curY, {align:'right'}); curY+=5;
-            
-            if(data.paiements && data.paiements.length > 0) {
-                pdf.setFontSize(7); pdf.setTextColor(100);
-                data.paiements.forEach(p => {
-                    pdf.text(`Reçu (${p.mode}) :`, 130, curY);
-                    pdf.text(`-${p.montant.toFixed(2)} €`, 190, curY, {align:'right'}); curY+=4;
-                });
-                curY+=2;
-            }
-            
-            pdf.setDrawColor(34, 155, 76); pdf.setLineWidth(0.5); pdf.rect(125, curY-4, 70, 10);
-            pdf.setFontSize(11); pdf.setFont("helvetica", "bold"); pdf.setTextColor(34, 155, 76);
-            pdf.text("RESTE À PAYER :", 128, curY+3); pdf.text(reste.toFixed(2) + " €", 192, curY+3, {align:'right'});
-            
-            // Ouvrir dans un nouvel onglet
-            window.open(pdf.output('bloburl'), '_blank');
-            
-        } catch(e) {
-            console.error(e);
-            alert("Erreur lors de la visualisation : " + e.message);
-        }
     };
 
     async function chargerSuggestionsClients() { try { const q = query(collection(db, "dossiers_admin"), orderBy("date_creation", "desc")); const snap = await getDocs(q); dossiersCache = []; const dlClients = document.getElementById('clients_suggestions'); const dlDefunts = document.getElementById('defunts_suggestions'); dlClients.innerHTML = ""; dlDefunts.innerHTML = ""; snap.forEach(doc => { const data = doc.data(); dossiersCache.push(data); if(data.mandant && data.mandant.nom) { const opt = document.createElement('option'); opt.value = data.mandant.nom; dlClients.appendChild(opt); } if(data.defunt && data.defunt.nom) { const opt = document.createElement('option'); opt.value = data.defunt.nom; dlDefunts.appendChild(opt); } }); } catch(e) {} }
@@ -652,93 +610,75 @@
             { type: 'section', text: 'PREPARATION/ORGANISATION DES OBSEQUES' },
             { desc: 'Démarches administratives', prix: 250, cat: 'Courant' },
             { desc: 'Vacation de Police (Pose de scellés)', prix: 25, cat: 'Avance' },
-            
             { type: 'section', text: 'PRÉPARATION DU DÉFUNT' },
             { desc: 'Toilette et habillage défunt (e)', prix: 150, cat: 'Courant' },
             { desc: 'Séjour en chambre funéraire (Forfait 3 jours)', prix: 350, cat: 'Optionnel' },
-            
             { type: 'section', text: 'TRANSPORT AVANT MISE EN BIERE' },
             { desc: 'Transport avant mise en bière', prix: 250, cat: 'Courant' },
-
             { type: 'section', text: '3. CERCUEIL & ACCESSOIRES' },
             { desc: 'Cercueil Azur inhumation (avec quatre poignées en métal cache vis plastique, et cuvette biodégradable)', prix: 850, cat: 'Courant' },
             { desc: 'Capiton (Tissu intérieur)', prix: 80, cat: 'Courant' },
             { desc: 'Plaque d\'identité gravée (Obligatoire)', prix: 25, cat: 'Courant' },
             { desc: 'Emblème religieux / Civil', prix: 40, cat: 'Optionnel' },
-
             { type: 'section', text: '4. CÉRÉMONIE & CONVOI' },
             { desc: 'Corbillard de cérémonie avec chauffeur', prix: 400, cat: 'Courant' },
             { desc: 'Porteurs (Equipe de 4 personnes)', prix: 600, cat: 'Courant' },
             { desc: 'Maître de cérémonie (Organisation & Gestion)', prix: 200, cat: 'Optionnel' },
             { desc: 'Frais de culte', prix: 220, cat: 'Optionnel' },
             { desc: 'Registre de condoléances', prix: 35, cat: 'Optionnel' },
-
             { type: 'section', text: '5. CIMETIÈRE' },
             { desc: 'Creusement et comblement de fosse / Ouverture de caveau', prix: 650, cat: 'Courant' },
             { desc: 'Redevance inhumation (Taxe Mairie)', prix: 50, cat: 'Avance' },
             { desc: 'Achat de concession', prix: 50, cat: 'Avance' }
         ],
-
         "Cremation": [
             { type: 'section', text: 'PREPARATION/ORGANISATION DES OBSEQUES' },
             { desc: 'Démarches administratives', prix: 250, cat: 'Courant' },
             { desc: 'Vacation de Police (Pose de scellés)', prix: 25, cat: 'Avance' },
-            
             { type: 'section', text: 'PRÉPARATION DU DÉFUNT' },
             { desc: 'Toilette et habillage défunt (e)', prix: 150, cat: 'Courant' },
             { desc: 'Séjour en chambre funéraire (Forfait 3 jours)', prix: 350, cat: 'Optionnel' },
-            
             { type: 'section', text: 'TRANSPORT AVANT MISE EN BIERE' },
             { desc: 'Transport avant mise en bière', prix: 250, cat: 'Courant' },
-
             { type: 'section', text: '3. CERCUEIL & ACCESSOIRES' },
             { desc: 'Cercueil Azur inhumation (avec quatre poignées en métal cache vis plastique, et cuvette biodégradable)', prix: 850, cat: 'Courant' },
             { desc: 'Capiton (Tissu intérieur)', prix: 80, cat: 'Courant' },
             { desc: 'Plaque d\'identité gravée (Obligatoire)', prix: 25, cat: 'Courant' },
             { desc: 'Emblème religieux / Civil', prix: 40, cat: 'Optionnel' },
-
             { type: 'section', text: '4. CÉRÉMONIE & CONVOI' },
             { desc: 'Corbillard de cérémonie avec chauffeur', prix: 400, cat: 'Courant' },
             { desc: 'Porteurs (Equipe de 4 personnes)', prix: 600, cat: 'Courant' },
             { desc: 'Maître de cérémonie (Organisation & Gestion)', prix: 200, cat: 'Optionnel' },
             { desc: 'Frais de culte', prix: 220, cat: 'Optionnel' },
             { desc: 'Registre de condoléances', prix: 35, cat: 'Optionnel' },
-
             { type: 'section', text: '4. CRÉMATORIUM' },
             { desc: 'Frais de Crémation ', prix: 750, cat: 'Avance' },
             { desc: 'Urne', prix: 60, cat: 'Courant' }
         ],
-
         "Rapatriement": [
             { type: 'section', text: 'PREPARATION/ORGANISATION DES OBSEQUES' },
             { desc: 'Démarches administratives', prix: 250, cat: 'Courant' },
             { desc: 'Vacation de Police (Pose de scellés)', prix: 25, cat: 'Avance' },
-            
             { type: 'section', text: 'PRÉPARATION DU DÉFUNT' },
             { desc: 'Toilette et habillage défunt (e)', prix: 150, cat: 'Courant' },
             { desc: 'Séjour en chambre funéraire (Forfait 3 jours)', prix: 350, cat: 'Optionnel' },
-            
             { type: 'section', text: 'TRANSPORT AVANT MISE EN BIERE' },
             { desc: 'Transport avant mise en bière', prix: 250, cat: 'Courant' },
-
             { type: 'section', text: '3. CERCUEIL & ACCESSOIRES' },
             { desc: 'Cercueil Azur Rapatriement (avec quatre poignées en métal cache vis plastique,Filtre épurateur (Norme IATA) et cuvette biodégradable)', prix: 850, cat: 'Courant' },
             { desc: 'Capiton (Tissu intérieur)', prix: 80, cat: 'Courant' },
             { desc: 'Plaque d\'identité gravée (Obligatoire)', prix: 25, cat: 'Courant' },
             { desc: 'Emblème religieux / Civil', prix: 40, cat: 'Optionnel' },
-
             { type: 'section', text: '4. CÉRÉMONIE & CONVOI' },
             { desc: 'Corbillard de cérémonie avec chauffeur', prix: 400, cat: 'Courant' },
             { desc: 'Porteurs (Equipe de 4 personnes)', prix: 600, cat: 'Courant' },
             { desc: 'Maître de cérémonie (Organisation & Gestion)', prix: 200, cat: 'Optionnel' },
             { desc: 'Frais de culte', prix: 220, cat: 'Optionnel' },
             { desc: 'Registre de condoléances', prix: 35, cat: 'Optionnel' },
-          
             { type: 'section', text: '4. TRANSPORT' },
             { desc: 'Transport vers Aéroport (France)', prix: 350, cat: 'Courant' },
             { desc: 'Fret Aérien ', prix: 1800, cat: 'Avance' }
         ],
-
         "Transport": [
             { type: 'section', text: '1. TRANSPORT DE CORPS' },
             { desc: 'Véhicule Agréé avec Caisson', prix: 300, cat: 'Courant' },
@@ -746,7 +686,6 @@
             { desc: 'Housse mortuaire impérméable', prix: 45, cat: 'Courant' },
             { desc: 'Frais kilométriques (Au-delà du forfait)', prix: 0, cat: 'Courant' }
         ],
-
         "Exhumation": [
             { type: 'section', text: '1. TECHNIQUE' },
             { desc: 'Démarches Mairie & Cimetière', prix: 150, cat: 'Courant' },
@@ -776,57 +715,6 @@
     window.calculTotal = function() { let total = 0; document.querySelectorAll('.val-prix').forEach(input => { total += parseFloat(input.value) || 0; }); document.getElementById('total_general').innerText = total.toFixed(2) + " €"; let totalPaye = paiements.reduce((sum, p) => sum + p.montant, 0); document.getElementById('total_paye').innerText = totalPaye.toFixed(2) + " €"; document.getElementById('reste_a_payer').innerText = (total - totalPaye).toFixed(2) + " €"; document.getElementById('total_display').innerText = total.toFixed(2); };
     window.supprimerDocument = async function(id) { if(confirm("Supprimer ?")) { await deleteDoc(doc(db, "factures_v2", id)); window.chargerListeFactures(); } };
 
-    document.getElementById('btn-save').addEventListener('click', async () => { const btn = document.getElementById('btn-save'); const id = document.getElementById('current_doc_id').value; btn.innerHTML = '...'; try { const lignes = []; document.querySelectorAll('#tbody_lignes tr').forEach(tr => { if(tr.classList.contains('row-section')) lignes.push({ type: 'section', text: tr.querySelector('input').value }); else lignes.push({ type: 'item', desc: tr.querySelector('.val-desc').value, cat: tr.querySelector('.val-type').value, prix: parseFloat(tr.querySelector('.val-prix').value) || 0 }); }); const docData = { client: { civility: document.getElementById('client_civility').value, nom: document.getElementById('client_nom').value, adresse: document.getElementById('client_adresse').value }, defunt: { civility: document.getElementById('defunt_civility').value, nom: document.getElementById('defunt_nom').value }, info: { type: document.getElementById('doc_type').value, date: document.getElementById('doc_date').value, numero: document.getElementById('doc_numero').value, total: parseFloat(document.getElementById('total_display').innerText) }, lignes: lignes, paiements: paiements, date_creation: new Date().toISOString() }; if(id) await updateDoc(doc(db, "factures_v2", id), docData); else await addDoc(collection(db, "factures_v2"), docData); alert("✅ Enregistré !"); window.showDashboard(); } catch(e) { alert("Erreur : " + e.message); } btn.innerHTML = '<i class="fas fa-save"></i> ENREGISTRER'; });
-
-  document.getElementById('btn-pdf').addEventListener('click', () => {
-        // Récupérer les lignes actuelles de l'éditeur
-        const lignes = []; 
-        document.querySelectorAll('#tbody_lignes tr').forEach(tr => { 
-            if(tr.classList.contains('row-section')) lignes.push({ type: 'section', text: tr.querySelector('input').value }); 
-            else lignes.push({ type: 'item', desc: tr.querySelector('.val-desc').value, cat: tr.querySelector('.val-type').value, prix: parseFloat(tr.querySelector('.val-prix').value) || 0 }); 
-        });
-        
-        // Créer l'objet de données
-        const tempData = { 
-            client: { civility: document.getElementById('client_civility').value, nom: document.getElementById('client_nom').value, adresse: document.getElementById('client_adresse').value }, 
-            defunt: { civility: document.getElementById('defunt_civility').value, nom: document.getElementById('defunt_nom').value }, 
-            info: { type: document.getElementById('doc_type').value, date: document.getElementById('doc_date').value, numero: document.getElementById('doc_numero').value, total: parseFloat(document.getElementById('total_display').innerText) }, 
-            lignes: lignes, paiements: paiements 
-        };
-
-        // Générer avec le moteur V23
-        const pdfDoc = new window.jspdf.jsPDF();
-        genererContenuPDF(pdfDoc, tempData);
-        pdfDoc.save(`${tempData.info.type}_${tempData.info.numero}.pdf`);
-    });
-    // MENU MOBILE
-    window.toggleMobileMenu = function() {
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.getElementById('mobile-overlay');
-        const btnIcon = document.querySelector('#mobile-menu-btn i');
-        sidebar.classList.toggle('mobile-open');
-        if (sidebar.classList.contains('mobile-open')) {
-            overlay.style.display = 'block';
-            btnIcon.classList.remove('fa-bars');
-            btnIcon.classList.add('fa-times');
-        } else {
-            overlay.style.display = 'none';
-            btnIcon.classList.remove('fa-times');
-            btnIcon.classList.add('fa-bars');
-        }
-    };
-
-    // Fermeture automatique quand on clique sur un lien du menu
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', () => {
-            if(window.innerWidth < 768) window.toggleMobileMenu();
-        });
-    });
-
-    // INIT AU CHARGEMENT
-    window.chargerListeFactures(); 
-    document.getElementById('dep_date_fac').valueAsDate = new Date();
-    window.calculTotal = calculTotal;
 </script>
 </body>
 </html>
