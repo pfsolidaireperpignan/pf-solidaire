@@ -3,78 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PF Solidaire - Atelier Dossier Complet</title>
+    <title>PF Solidaire - Atelier Dossier</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
-    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script> <script src="https://cdnjs.cloudflare.com/ajax/libs/downloadjs/1.4.8/download.min.js"></script> <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script> <style>
-        body { font-family: 'Helvetica', sans-serif; background-color: #f1f5f9; margin: 0; display: flex; height: 100vh; color: #1e293b; }
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/downloadjs/1.4.8/download.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    
+    <style>
+        /* --- STYLES IDENTIQUES A INDEX.HTML --- */
+        :root { --primary: #10b981; --primary-dark: #059669; --secondary: #3b82f6; --dark: #1e293b; --light: #f8fafc; --gray: #64748b; --border: #e2e8f0; }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; margin: 0; display: flex; height: 100vh; color: var(--dark); overflow: hidden; }
         
-        /* SIDEBAR */
-        .sidebar { width: 260px; background: white; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; padding: 20px; }
-        .brand { font-size: 1.4rem; font-weight: 800; color: #10b981; margin-bottom: 40px; display: flex; align-items: center; gap: 10px; }
-        .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border-radius: 8px; text-decoration: none; color: #64748b; font-weight: bold; margin-bottom: 5px; transition:0.2s; }
-        .nav-link:hover { background: #f1f5f9; color: #10b981; }
-        .nav-link.active { background: #ecfdf5; color: #059669; }
+        /* SIDEBAR (Copie Conforme) */
+        .sidebar { width: 260px; background: white; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.02); z-index: 10; transition: all 0.3s ease; }
+        .sidebar.collapsed { width: 80px; padding: 20px 10px; }
+        .sidebar.collapsed .brand-text, .sidebar.collapsed .nav-text { display: none; }
+        .sidebar.collapsed .brand { justify-content: center; }
+        .sidebar.collapsed .nav-link { justify-content: center; padding: 15px; }
+        .sidebar.collapsed .nav-link i { margin: 0; font-size: 1.4rem; }
+        .sidebar.collapsed #btn-toggle-menu { margin-left: 0; }
 
-        /* CONTENU */
-        .main-content { flex: 1; padding: 30px; overflow-y: auto; }
+        .brand { font-size: 1.4rem; font-weight: 800; color: var(--primary); margin-bottom: 40px; display: flex; align-items: center; gap: 10px; white-space: nowrap; overflow: hidden; }
+        .nav-menu { list-style: none; padding: 0; margin: 0; flex: 1; display: flex; flex-direction: column; gap: 5px; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border-radius: 8px; text-decoration: none; color: var(--gray); font-weight: 500; transition: all 0.2s ease; white-space: nowrap; overflow: hidden; }
+        .nav-link:hover { background: #ecfdf5; color: var(--primary-dark); transform: translateX(3px); }
+        .nav-link.active { background: #ecfdf5; color: var(--primary-dark); font-weight: 700; }
+        .nav-link i { width: 25px; text-align: center; }
+
+        /* MAIN CONTENT */
+        .main-content { flex: 1; padding: 30px; overflow-y: auto; background: #f1f5f9; position: relative; }
         
-        .header-fusion { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; border-left: 5px solid #ea580c; display: flex; justify-content: space-between; align-items: center; }
+        /* HEADER ATELIER */
+        .header-fusion { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 30px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .header-fusion h2 { margin: 0; font-size: 1.5rem; color: var(--dark); font-weight: 700; }
         
-        .upload-zone { 
-            border: 3px dashed #cbd5e1; border-radius: 12px; padding: 40px; text-align: center; 
-            background: #f8fafc; cursor: pointer; transition: all 0.3s; margin-bottom: 20px;
-        }
-        .upload-zone:hover { border-color: #ea580c; background: #fff7ed; }
-        .upload-zone i { font-size: 3rem; color: #94a3b8; margin-bottom: 10px; }
+        /* ZONE UPLOAD */
+        .upload-zone { border: 2px dashed #cbd5e1; border-radius: 16px; padding: 40px; text-align: center; background: #f8fafc; cursor: pointer; transition: all 0.3s; margin-bottom: 25px; }
+        .upload-zone:hover { border-color: var(--secondary); background: #eff6ff; }
+        .upload-zone i { font-size: 3rem; color: #94a3b8; margin-bottom: 15px; transition: 0.3s; }
+        .upload-zone:hover i { color: var(--secondary); transform: translateY(-5px); }
         
-        /* LISTE DES FICHIERS (STYLE DRAG & DROP) */
-        .file-list { background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; min-height: 50px; }
-        .file-item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #f1f5f9; background: white; transition: background 0.2s; }
+        /* LISTE FICHIERS */
+        .file-list { background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); overflow: hidden; min-height: 100px; }
+        .file-item { display: flex; align-items: center; padding: 15px 20px; border-bottom: 1px solid #f1f5f9; background: white; transition: background 0.2s; }
         .file-item:last-child { border-bottom: none; }
         .file-item:hover { background: #f8fafc; }
         
-        /* POIGNÉE DE DÉPLACEMENT */
-        .drag-handle { 
-            cursor: grab; color: #cbd5e1; font-size: 1.2rem; padding: 10px; margin-right: 10px; 
-        }
-        .drag-handle:hover { color: #ea580c; }
-        .sortable-ghost { opacity: 0.4; background: #fff7ed; border: 2px dashed #ea580c; } /* Style pendant le déplacement */
+        .drag-handle { cursor: grab; color: #cbd5e1; font-size: 1.2rem; padding: 10px; margin-right: 15px; }
+        .drag-handle:hover { color: var(--primary); }
+        .sortable-ghost { opacity: 0.4; background: #ecfdf5; border: 1px dashed var(--primary); }
 
         .file-info { flex: 1; display: flex; align-items: center; gap: 15px; }
-        .file-icon { width: 40px; height: 40px; background: #eff6ff; color: #3b82f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .file-icon { width: 45px; height: 45px; background: #eff6ff; color: var(--secondary); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
         .img-icon { background: #fdf2f8; color: #db2777; }
         
-        .btn-del { border: none; background: #fef2f2; width: 35px; height: 35px; border-radius: 6px; cursor: pointer; color: #ef4444; transition: 0.2s; }
+        .btn-del { border: none; background: #fef2f2; width: 40px; height: 40px; border-radius: 8px; cursor: pointer; color: #ef4444; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
         .btn-del:hover { background: #fee2e2; }
 
         .btn-fusion { 
             background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); 
-            color: white; border: none; padding: 15px 30px; border-radius: 50px; 
-            font-size: 1.1rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(234, 88, 12, 0.3);
+            color: white; border: none; padding: 15px 35px; border-radius: 12px; 
+            font-size: 1rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 10px rgba(234, 88, 12, 0.2);
             display: inline-flex; align-items: center; gap: 10px; transition: transform 0.2s;
         }
-        .btn-fusion:hover { transform: translateY(-2px); }
+        .btn-fusion:hover { transform: translateY(-2px); box-shadow: 0 8px 15px rgba(234, 88, 12, 0.3); }
         .btn-fusion:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; transform: none; }
+
+        /* LOADER SECU */
+        #app-loader { position: fixed; inset: 0; background: white; z-index: 9999; display: flex; justify-content: center; align-items: center; }
+
+        /* MOBILE */
+        #mobile-menu-btn { display: none; }
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; top: 0; left: 0; height: 100vh; transform: translateX(-100%); transition: transform 0.3s ease; z-index: 5000; width: 85%; }
+            .sidebar.mobile-open { transform: translateX(0); }
+            #btn-toggle-menu { display: none !important; }
+            #mobile-menu-btn { display: flex !important; align-items: center; justify-content: center; position: fixed; bottom: 20px; right: 20px; width: 55px; height: 55px; background: var(--primary); color: white; border-radius: 50%; border: none; font-size: 1.5rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); z-index: 6000; cursor: pointer; }
+            .main-content { padding: 15px; }
+            .header-fusion { flex-direction: column; gap: 15px; text-align: center; }
+            .btn-fusion { width: 100%; justify-content: center; }
+        }
     </style>
 </head>
 <body>
 
+    <div id="app-loader">
+        <i class="fas fa-circle-notch fa-spin" style="font-size:3rem; color:#10b981;"></i>
+    </div>
+
     <nav class="sidebar">
-        <div class="brand"><i class="fas fa-dove"></i> PF ATELIER</div>
-        <ul style="list-style:none; padding:0;">
-            <li><a href="index.html" class="nav-link"><i class="fas fa-arrow-left"></i> Retour ERP</a></li>
-            <li><a href="facturation_v2.html" class="nav-link"><i class="fas fa-file-invoice"></i> Facturation</a></li>
-            <li style="margin-top:20px; padding:10px; font-size:0.8rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Module</li>
-            <li><a href="#" class="nav-link active"><i class="fas fa-layer-group"></i> Fusion Dossier</a></li>
+        <div class="brand">
+            <i class="fas fa-dove"></i> 
+            <span class="brand-text">PF ERP</span> 
+            <span style="font-size:0.5em; color:#64748b; font-weight:400; margin-left:5px;" class="brand-text">v17</span>
+            <button id="btn-toggle-menu" onclick="toggleSidebar()" style="margin-left:auto; border:none; background:transparent; cursor:pointer; color:#64748b;">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item"><a href="index.html" class="nav-link"><i class="fas fa-home"></i> <span class="nav-text">Accueil</span></a></li>
+            <li class="nav-item"><a href="index.html" class="nav-link"><i class="fas fa-folder-open"></i> <span class="nav-text">Dossier Admin</span></a></li>
+            <li class="nav-item"><a href="index.html" class="nav-link"><i class="fas fa-users"></i> <span class="nav-text">Base Clients</span></a></li>
+            <li class="nav-item"><a href="index.html" class="nav-link"><i class="fas fa-boxes"></i> <span class="nav-text">Gestion Stock</span></a></li>
+            <li class="nav-item"><a href="facturation_v2.html" class="nav-link"><i class="fas fa-file-invoice-dollar"></i> <span class="nav-text">Facturation</span></a></li>
+            
+            <li class="nav-item" style="margin-top:20px; border-top:1px solid #e2e8f0; pt:10px;"></li>
+            <li class="nav-item"><a href="#" class="nav-link active"><i class="fas fa-layer-group"></i> <span class="nav-text">Atelier Dossier</span></a></li>
+            
+            <li class="nav-item" style="margin-top:auto;"><a href="#" onclick="window.logout()" class="nav-link" style="color:#ef4444;"><i class="fas fa-power-off"></i> <span class="nav-text">Déconnexion</span></a></li>
         </ul>
     </nav>
 
     <div class="main-content">
         <div class="header-fusion">
             <div>
-                <h2 style="margin:0; color:#1e293b;">Atelier d'Assemblage</h2>
-                <p style="margin:5px 0 0 0; color:#64748b;">Glissez-déposez pour changer l'ordre des documents.</p>
+                <h2 style="margin-bottom:5px;"><i class="fas fa-tools" style="color:#ea580c;"></i> Atelier de Fusion</h2>
+                <p style="margin:0; color:#64748b; font-size:0.9rem;">Assemblez vos PDF (Devis, CNI, Mandats...) en un seul dossier complet.</p>
             </div>
             <button id="btn-merge" class="btn-fusion" onclick="fusionnerTout()" disabled>
                 <i class="fas fa-file-pdf"></i> TÉLÉCHARGER LE DOSSIER
@@ -84,45 +130,92 @@
         <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
             <input type="file" id="fileInput" multiple accept=".pdf, .jpg, .jpeg, .png" style="display:none" onchange="handleFiles(this.files)">
             <i class="fas fa-cloud-upload-alt"></i>
-            <h3>Cliquez pour ajouter des documents</h3>
-            <p style="color:#94a3b8;">(PDF, JPG, PNG)</p>
+            <h3 style="margin:0; font-size:1.1rem; color:#1e293b;">Cliquez ou déposez vos documents ici</h3>
+            <p style="margin-top:5px; color:#94a3b8; font-size:0.9rem;">(Formats acceptés : PDF, JPG, PNG)</p>
         </div>
 
         <div id="fileList" class="file-list">
-            <div style="padding:30px; text-align:center; color:#cbd5e1; font-style:italic;" id="empty-msg">
+            <div style="padding:40px; text-align:center; color:#cbd5e1; font-style:italic;" id="empty-msg">
                 La liste est vide.
             </div>
         </div>
     </div>
 
-    <script>
+    <button id="mobile-menu-btn" onclick="toggleSidebar()">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div id="mobile-overlay" onclick="toggleSidebar()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:4000;"></div>
+
+    <script type="module">
+        // 1. IMPORTATION SÉCURITÉ & CONFIG
+        import { auth } from './js/config.js'; 
+        import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // 2. VÉRIFICATION CONNEXION
+        onAuthStateChanged(auth, (user) => {
+            const loader = document.getElementById('app-loader');
+            if (user) {
+                // Connecté : On cache le loader
+                if(loader) {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.remove(), 500);
+                }
+            } else {
+                // Pas connecté : Retour à la case départ
+                window.location.href = "index.html";
+            }
+        });
+
+        // 3. DÉCONNEXION
+        window.logout = function() {
+            if(confirm("Se déconnecter ?")) {
+                signOut(auth).then(() => window.location.href = "index.html");
+            }
+        };
+
+        // 4. GESTION MENU
+        window.toggleSidebar = function() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('mobile-overlay');
+            const btnIcon = document.querySelector('#mobile-menu-btn i');
+            
+            if (window.innerWidth < 768) {
+                sidebar.classList.toggle('mobile-open');
+                if (sidebar.classList.contains('mobile-open')) {
+                    overlay.style.display = 'block';
+                    btnIcon.classList.remove('fa-bars'); btnIcon.classList.add('fa-times');
+                } else {
+                    overlay.style.display = 'none';
+                    btnIcon.classList.remove('fa-times'); btnIcon.classList.add('fa-bars');
+                }
+            } else {
+                sidebar.classList.toggle('collapsed');
+            }
+        };
+
+        // 5. LOGIQUE ATELIER (Fusion)
         let fichiers = []; 
 
-        // INITIALISATION DU DRAG & DROP
         const el = document.getElementById('fileList');
         Sortable.create(el, {
-            handle: '.drag-handle', // On ne peut attraper que par la poignée
+            handle: '.drag-handle',
             animation: 150,
             ghostClass: 'sortable-ghost',
             onEnd: function (evt) {
-                // IMPORTANT : On met à jour le tableau 'fichiers' pour qu'il corresponde au visuel
                 const item = fichiers.splice(evt.oldIndex, 1)[0];
                 fichiers.splice(evt.newIndex, 0, item);
-                // On rafraichit pour que les index de suppression restent justes
                 renderList(); 
             },
         });
 
-        function handleFiles(files) {
-            Array.from(files).forEach(file => {
-                fichiers.push(file);
-            });
+        window.handleFiles = function(files) {
+            Array.from(files).forEach(file => { fichiers.push(file); });
             renderList();
-        }
+        };
 
         function renderList() {
             const container = document.getElementById('fileList');
-            const emptyMsg = '<div style="padding:30px; text-align:center; color:#cbd5e1; font-style:italic;" id="empty-msg">La liste est vide.</div>';
+            const emptyMsg = '<div style="padding:40px; text-align:center; color:#cbd5e1; font-style:italic;" id="empty-msg">La liste est vide.</div>';
             
             if(fichiers.length === 0) {
                 container.innerHTML = emptyMsg;
@@ -139,33 +232,34 @@
                 const faIcon = isPdf ? 'fa-file-pdf' : 'fa-file-image';
                 const size = (file.size / 1024 / 1024).toFixed(2) + ' Mo';
 
-                // On ajoute la poignée .drag-handle
                 const html = `
                     <div class="file-item">
                         <i class="fas fa-grip-vertical drag-handle" title="Déplacer"></i>
                         <div class="file-info">
                             <div class="${iconClass}"><i class="fas ${faIcon}"></i></div>
                             <div>
-                                <div style="font-weight:bold;">${file.name}</div>
-                                <div style="font-size:0.8rem; color:#94a3b8;">${size}</div>
+                                <div style="font-weight:700; color:var(--dark);">${file.name}</div>
+                                <div style="font-size:0.8rem; color:var(--gray);">${size}</div>
                             </div>
                         </div>
-                        <button class="btn-del" onclick="remove(${index})" title="Retirer">✖️</button>
+                        <button class="btn-del" onclick="window.removeFile(${index})" title="Retirer"><i class="fas fa-trash"></i></button>
                     </div>
                 `;
                 container.insertAdjacentHTML('beforeend', html);
             });
         }
 
-        window.remove = function(index) {
+        window.removeFile = function(index) {
             fichiers.splice(index, 1);
             renderList();
         };
 
-        // --- MOTEUR DE FUSION ---
+        // MOTEUR PDF-LIB
         window.fusionnerTout = async function() {
             const btn = document.getElementById('btn-merge');
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> TRAITEMENT...';
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> TRAITEMENT EN COURS...';
+            btn.disabled = true;
             
             try {
                 const { PDFDocument } = PDFLib;
@@ -180,9 +274,8 @@
                         copiedPages.forEach((page) => pdfDoc.addPage(page));
                     } 
                     else {
-                        // Gestion Image
                         let image;
-                        if (file.type === 'image/jpeg') image = await pdfDoc.embedJpg(arrayBuffer);
+                        if (file.type === 'image/jpeg' || file.type === 'image/jpg') image = await pdfDoc.embedJpg(arrayBuffer);
                         else if (file.type === 'image/png') image = await pdfDoc.embedPng(arrayBuffer);
                         
                         if(image) {
@@ -206,7 +299,8 @@
                 console.error(err);
             }
             
-            btn.innerHTML = '<i class="fas fa-file-pdf"></i> TÉLÉCHARGER LE DOSSIER';
+            btn.innerHTML = originalText;
+            btn.disabled = false;
         };
     </script>
 </body>
