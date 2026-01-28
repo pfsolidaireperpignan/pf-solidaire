@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PF Solidaire - Atelier Dossier Complet</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/downloadjs/1.4.8/download.min.js"></script>
+    
+    <style>
+        body { font-family: 'Helvetica', sans-serif; background-color: #f1f5f9; margin: 0; display: flex; height: 100vh; color: #1e293b; }
+        
+        /* SIDEBAR IDENTIQUE A L'ADMIN */
+        .sidebar { width: 260px; background: white; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; padding: 20px; }
+        .brand { font-size: 1.4rem; font-weight: 800; color: #10b981; margin-bottom: 40px; display: flex; align-items: center; gap: 10px; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border-radius: 8px; text-decoration: none; color: #64748b; font-weight: bold; margin-bottom: 5px; transition:0.2s; }
+        .nav-link:hover { background: #f1f5f9; color: #10b981; }
+        .nav-link.active { background: #ecfdf5; color: #059669; }
+
+        /* CONTENU PRINCIPAL */
+        .main-content { flex: 1; padding: 30px; overflow-y: auto; }
+        
+        .header-fusion { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; border-left: 5px solid #ea580c; display: flex; justify-content: space-between; align-items: center; }
+        
+        .upload-zone { 
+            border: 3px dashed #cbd5e1; border-radius: 12px; padding: 40px; text-align: center; 
+            background: #f8fafc; cursor: pointer; transition: all 0.3s; margin-bottom: 20px;
+        }
+        .upload-zone:hover { border-color: #ea580c; background: #fff7ed; }
+        .upload-zone i { font-size: 3rem; color: #94a3b8; margin-bottom: 10px; }
+        
+        .file-list { background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; }
+        .file-item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #f1f5f9; animation: fadeIn 0.3s; }
+        .file-item:last-child { border-bottom: none; }
+        .file-info { flex: 1; display: flex; align-items: center; gap: 15px; }
+        .file-icon { width: 40px; height: 40px; background: #eff6ff; color: #3b82f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .img-icon { background: #fdf2f8; color: #db2777; }
+        
+        .actions { display: flex; gap: 5px; }
+        .btn-mini { border: none; background: #f1f5f9; width: 35px; height: 35px; border-radius: 6px; cursor: pointer; color: #64748b; transition: 0.2s; }
+        .btn-mini:hover { background: #e2e8f0; color: #1e293b; }
+        .btn-del:hover { background: #fee2e2; color: #ef4444; }
+
+        .btn-fusion { 
+            background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); 
+            color: white; border: none; padding: 15px 30px; border-radius: 50px; 
+            font-size: 1.1rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(234, 88, 12, 0.3);
+            display: inline-flex; align-items: center; gap: 10px; transition: transform 0.2s;
+        }
+        .btn-fusion:hover { transform: translateY(-2px); }
+        .btn-fusion:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; transform: none; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="brand"><i class="fas fa-dove"></i> PF ATELIER</div>
+        <ul style="list-style:none; padding:0;">
+            <li><a href="index.html" class="nav-link"><i class="fas fa-arrow-left"></i> Retour ERP</a></li>
+            <li><a href="facturation_v2.html" class="nav-link"><i class="fas fa-file-invoice"></i> Facturation</a></li>
+            <li style="margin-top:20px; padding:10px; font-size:0.8rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Module</li>
+            <li><a href="#" class="nav-link active"><i class="fas fa-layer-group"></i> Fusion Dossier</a></li>
+        </ul>
+    </nav>
+
+    <div class="main-content">
+        <div class="header-fusion">
+            <div>
+                <h2 style="margin:0; color:#1e293b;">Atelier d'Assemblage</h2>
+                <p style="margin:5px 0 0 0; color:#64748b;">Regroupez PDF et Scans (CNI, Livret...) en un seul fichier.</p>
+            </div>
+            <button id="btn-merge" class="btn-fusion" onclick="fusionnerTout()" disabled>
+                <i class="fas fa-file-pdf"></i> TÉLÉCHARGER LE DOSSIER COMPLET
+            </button>
+        </div>
+
+        <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" multiple accept=".pdf, .jpg, .jpeg, .png" style="display:none" onchange="handleFiles(this.files)">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <h3>Cliquez ou déposez vos fichiers ici</h3>
+            <p style="color:#94a3b8;">Accepte : PDF générés, Scans CNI (JPG/PNG), Photos...</p>
+        </div>
+
+        <div id="fileList" class="file-list">
+            <div style="padding:30px; text-align:center; color:#cbd5e1; font-style:italic;" id="empty-msg">
+                La liste est vide. Ajoutez des documents pour commencer.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let fichiers = []; // Notre liste de travail
+
+        function handleFiles(files) {
+            document.getElementById('empty-msg').style.display = 'none';
+            
+            Array.from(files).forEach(file => {
+                fichiers.push(file);
+            });
+            renderList();
+        }
+
+        function renderList() {
+            const container = document.getElementById('fileList');
+            // On garde le message vide s'il faut
+            if(fichiers.length === 0) {
+                container.innerHTML = '<div style="padding:30px; text-align:center; color:#cbd5e1; font-style:italic;" id="empty-msg">La liste est vide.</div>';
+                document.getElementById('btn-merge').disabled = true;
+                return;
+            }
+            
+            document.getElementById('btn-merge').disabled = false;
+            container.innerHTML = ''; // Reset visuel
+
+            fichiers.forEach((file, index) => {
+                const isPdf = file.type === 'application/pdf';
+                const iconClass = isPdf ? 'file-icon' : 'file-icon img-icon';
+                const faIcon = isPdf ? 'fa-file-pdf' : 'fa-file-image';
+                const size = (file.size / 1024 / 1024).toFixed(2) + ' Mo';
+
+                const html = `
+                    <div class="file-item">
+                        <div class="file-info">
+                            <div style="font-weight:bold; color:#94a3b8;">${index + 1}</div>
+                            <div class="${iconClass}"><i class="fas ${faIcon}"></i></div>
+                            <div>
+                                <div style="font-weight:bold;">${file.name}</div>
+                                <div style="font-size:0.8rem; color:#94a3b8;">${size}</div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn-mini" onclick="move(${index}, -1)" title="Monter">⬆️</button>
+                            <button class="btn-mini" onclick="move(${index}, 1)" title="Descendre">⬇️</button>
+                            <button class="btn-mini btn-del" onclick="remove(${index})" title="Supprimer">✖️</button>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        window.move = function(index, direction) {
+            if (index + direction < 0 || index + direction >= fichiers.length) return;
+            // Echange
+            const temp = fichiers[index];
+            fichiers[index] = fichiers[index + direction];
+            fichiers[index + direction] = temp;
+            renderList();
+        };
+
+        window.remove = function(index) {
+            fichiers.splice(index, 1);
+            renderList();
+        };
+
+        // --- CŒUR DU SYSTÈME : FUSION (PDF-LIB) ---
+        window.fusionnerTout = async function() {
+            const btn = document.getElementById('btn-merge');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> TRAITEMENT...';
+            
+            try {
+                const { PDFDocument } = PDFLib;
+                const pdfDoc = await PDFDocument.create();
+
+                for (const file of fichiers) {
+                    const arrayBuffer = await file.arrayBuffer();
+
+                    if (file.type === 'application/pdf') {
+                        // C'est un PDF : on copie toutes ses pages
+                        const sourcePdf = await PDFDocument.load(arrayBuffer);
+                        const copiedPages = await pdfDoc.copyPages(sourcePdf, sourcePdf.getPageIndices());
+                        copiedPages.forEach((page) => pdfDoc.addPage(page));
+                    } 
+                    else {
+                        // C'est une Image : on l'intègre sur une page A4
+                        let image;
+                        if (file.type === 'image/jpeg') image = await pdfDoc.embedJpg(arrayBuffer);
+                        else if (file.type === 'image/png') image = await pdfDoc.embedPng(arrayBuffer);
+                        
+                        if(image) {
+                            const page = pdfDoc.addPage();
+                            const { width, height } = image.scaleToFit(page.getWidth(), page.getHeight());
+                            page.drawImage(image, {
+                                x: page.getWidth() / 2 - width / 2,
+                                y: page.getHeight() / 2 - height / 2,
+                                width: width,
+                                height: height,
+                            });
+                        }
+                    }
+                }
+
+                // Sauvegarde et téléchargement
+                const pdfBytes = await pdfDoc.save();
+                download(pdfBytes, "Dossier_Complet_PF.pdf", "application/pdf");
+                
+            } catch (err) {
+                alert("Erreur lors de la fusion : " + err.message);
+                console.error(err);
+            }
+            
+            btn.innerHTML = '<i class="fas fa-file-pdf"></i> TÉLÉCHARGER LE DOSSIER COMPLET';
+        };
+    </script>
+</body>
+</html>
