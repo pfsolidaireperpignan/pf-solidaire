@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PF Solidaire - Atelier Dossier (V31 - Preview)</title>
+    <title>PF Solidaire - Atelier Dossier (V32 - Modale)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
@@ -15,7 +15,8 @@
         /* --- STYLES IDENTIQUES A INDEX.HTML --- */
         :root { --primary: #10b981; --primary-dark: #059669; --secondary: #3b82f6; --dark: #1e293b; --light: #f8fafc; --gray: #64748b; --border: #e2e8f0; }
         body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; margin: 0; display: flex; height: 100vh; color: var(--dark); overflow: hidden; }
-        
+        .hidden { display: none !important; }
+
         /* SIDEBAR (Copie Conforme) */
         .sidebar { width: 260px; background: white; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.02); z-index: 10; transition: all 0.3s ease; }
         .sidebar.collapsed { width: 80px; padding: 20px 10px; }
@@ -64,13 +65,13 @@
         
         .btn-mini { border: none; width: 40px; height: 40px; border-radius: 8px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
         
-        .btn-view { background: #eff6ff; color: #3b82f6; } /* Bleu pour Voir */
+        .btn-view { background: #eff6ff; color: #3b82f6; } 
         .btn-view:hover { background: #3b82f6; color: white; }
 
-        .btn-split { background: #fff7ed; color: #ea580c; } /* Orange pour Diviser */
+        .btn-split { background: #fff7ed; color: #ea580c; }
         .btn-split:hover { background: #ea580c; color: white; }
         
-        .btn-del { background: #fef2f2; color: #ef4444; } /* Rouge pour Supprimer */
+        .btn-del { background: #fef2f2; color: #ef4444; }
         .btn-del:hover { background: #ef4444; color: white; }
 
         .btn-fusion { 
@@ -81,6 +82,28 @@
         }
         .btn-fusion:hover { transform: translateY(-2px); box-shadow: 0 8px 15px rgba(234, 88, 12, 0.3); }
         .btn-fusion:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; transform: none; }
+
+        /* --- STYLES MODALE DE PREVISUALISATION --- */
+        #preview-modal { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 10000; 
+            display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px);
+        }
+        .modal-content-preview { 
+            width: 90%; height: 90%; background: white; border-radius: 12px; 
+            position: relative; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        .preview-header {
+            padding: 10px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;
+        }
+        .btn-close-preview { 
+            background: #ef4444; color: white; border: none; padding: 8px 15px; border-radius: 6px; 
+            cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        .btn-close-preview:hover { background: #dc2626; }
+        
+        #preview-container { flex: 1; background: #475569; padding: 0; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        #preview-frame { width: 100%; height: 100%; border: none; }
+        #preview-image { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
 
         /* LOADER SECU */
         #app-loader { position: fixed; inset: 0; background: white; z-index: 9999; display: flex; justify-content: center; align-items: center; }
@@ -102,6 +125,16 @@
 
     <div id="app-loader">
         <i class="fas fa-circle-notch fa-spin" style="font-size:3rem; color:#10b981;"></i>
+    </div>
+
+    <div id="preview-modal" class="hidden">
+        <div class="modal-content-preview">
+            <div class="preview-header">
+                <span style="font-weight:bold; color:#64748b;" id="preview-title">Document</span>
+                <button class="btn-close-preview" onclick="closePreview()">FERMER ✖</button>
+            </div>
+            <div id="preview-container"></div>
+        </div>
     </div>
 
     <nav class="sidebar">
@@ -131,7 +164,7 @@
         <div class="header-fusion">
             <div>
                 <h2 style="margin-bottom:5px;"><i class="fas fa-tools" style="color:#ea580c;"></i> Atelier de Fusion</h2>
-                <p style="margin:0; color:#64748b; font-size:0.9rem;">1. Ajoutez vos fichiers. 2. Vérifiez (👁️) et Divisez (✂️). 3. Fusionnez !</p>
+                <p style="margin:0; color:#64748b; font-size:0.9rem;">1. Ajoutez. 2. Vérifiez (👁️) et Découpez (✂️). 3. Fusionnez !</p>
             </div>
             <button id="btn-merge" class="btn-fusion" onclick="fusionnerTout()" disabled>
                 <i class="fas fa-file-pdf"></i> TÉLÉCHARGER LE DOSSIER
@@ -265,7 +298,7 @@
                             </div>
                         </div>
                         <div class="file-actions">
-                            <button class="btn-mini btn-view" onclick="window.previewFile(${index})" title="Voir"><i class="fas fa-eye"></i></button>
+                            <button class="btn-mini btn-view" onclick="window.previewFile(${index})" title="Visualiser"><i class="fas fa-eye"></i></button>
                             ${splitBtn}
                             <button class="btn-mini btn-del" onclick="window.removeFile(${index})" title="Retirer"><i class="fas fa-trash"></i></button>
                         </div>
@@ -280,11 +313,29 @@
             renderList();
         };
 
-        // --- PREVIEW FILE (NOUVEAU) ---
+        // --- GESTION PREVISUALISATION (MODALE) ---
         window.previewFile = function(index) {
             const file = fichiers[index];
-            const fileURL = URL.createObjectURL(file);
-            window.open(fileURL, '_blank');
+            const url = URL.createObjectURL(file);
+            const modal = document.getElementById('preview-modal');
+            const container = document.getElementById('preview-container');
+            const title = document.getElementById('preview-title');
+
+            title.innerText = file.name;
+            container.innerHTML = ''; // Nettoyer
+
+            if(file.type === 'application/pdf') {
+                container.innerHTML = `<iframe src="${url}" id="preview-frame"></iframe>`;
+            } else {
+                container.innerHTML = `<img src="${url}" id="preview-image">`;
+            }
+
+            modal.classList.remove('hidden');
+        };
+
+        window.closePreview = function() {
+            document.getElementById('preview-modal').classList.add('hidden');
+            document.getElementById('preview-container').innerHTML = ''; // Stop video/memoire
         };
 
         // --- DIVISION PDF ---
@@ -292,9 +343,7 @@
             const file = fichiers[index];
             if(file.type !== 'application/pdf') return;
 
-            const btn = document.querySelectorAll('.btn-split')[index]; // On cible le bon bouton (si plusieurs)
-            // Correction : querySelectorAll peut renvoyer une liste qui ne correspond pas exactement aux index si on a filtré, mais ici on reconstruit tout, donc ça va.
-            // Sécurité : on prend l'élément cliqué via event.target si besoin, mais ici l'index est fiable car on re-render.
+            const btn = document.querySelectorAll('.btn-split')[index]; // Feedback
             if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             try {
@@ -313,7 +362,7 @@
                     return;
                 }
 
-                fichiers.splice(index, 1); // On enlève l'original
+                fichiers.splice(index, 1); // Retirer l'original
 
                 for (let i = 0; i < pageCount; i++) {
                     const newPdf = await PDFLib.PDFDocument.create();
@@ -322,7 +371,7 @@
                     const pdfBytes = await newPdf.save();
                     
                     const newFile = new File([pdfBytes], `${file.name.replace('.pdf','')} - P${i+1}.pdf`, { type: 'application/pdf' });
-                    fichiers.splice(index + i, 0, newFile); // On insère à la suite
+                    fichiers.splice(index + i, 0, newFile); // Insérer
                 }
 
                 renderList();
